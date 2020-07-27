@@ -42,18 +42,10 @@ cc_library(
 )
 
 cc_library(
-    name = "memory",
-    srcs = ["memory.cc"],
-    hdrs = ["memory.hpp"],
-    deps = ["common"],
-)
-
-cc_library(
     name = "chunk",
     srcs = ["chunk.cc"],
     hdrs = ["chunk.hpp"],
     deps = [
-        "memory",
         "value",
     ],
 )
@@ -77,7 +69,6 @@ cc_binary(
         "chunk",
         "common",
         "debug",
-        "memory",
         "vm",
     ],
 )

@@ -1,7 +1,6 @@
 
 #include "chunk.hpp"
 
-#include "memory.hpp"
 #include "value.hpp"
 
 void Chunk::write_chunk(uint8_t byte, int line) {

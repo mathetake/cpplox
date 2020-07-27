@@ -1,4 +1,4 @@
-A c++ implementation of lox virtual machine
+A c++ implementation of lox language compiler/virtual machine
 
 
 ```
