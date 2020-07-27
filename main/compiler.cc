@@ -1,6 +1,10 @@
 
 #include "compiler.hpp"
 
+#ifdef DEBUG_PRINT_CODE
+#include "debug.hpp"
+#endif
+
 ParseRule parseRules[TokenType::TOKEN_TYPE_NUMS];
 ParseRule* getRule(TokenType type) { return &parseRules[type]; };
 
@@ -65,7 +69,14 @@ bool Compiler::compile() {
 
 void Compiler::emitReturn() { emitByte(OptCode::OP_RETURN); };
 
-void Compiler::endCompiler() { emitReturn(); }
+void Compiler::endCompiler() {
+  emitReturn();
+#ifdef DEBUG_PRINT_CODE
+  if (!parser.hadError) {
+    disassembleChunk(chunk, "code");
+  }
+#endif
+}
 
 void Compiler::advance() {
   parser.previous = parser.current;

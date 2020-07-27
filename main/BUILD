@@ -37,6 +37,7 @@ cc_library(
     deps = [
         "chunk",
         "common",
+        "debug",
         "scanner",
     ],
 )

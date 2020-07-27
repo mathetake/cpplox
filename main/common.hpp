@@ -1,5 +1,6 @@
 #ifndef cpplox_common_h
 #define cpplox_common_h
+#define DEBUG_PRINT_CODE
 
 #include <stdbool.h>
 #include <stddef.h>
