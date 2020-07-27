@@ -1,0 +1,39 @@
+#ifndef cpplox_vm_h
+#define cpplox_vm_h
+
+#include "chunk.hpp"
+
+#define STACK_MAX 256
+
+enum IntepretResult {
+  INTERPRET_OK,
+  INTERPRET_COMPILE_ERROR,
+  INTERPRET_RUNTIME_ERROR,
+};
+
+class VM {
+ public:
+  Chunk* chunk;
+  uint8_t* ip;
+  Value stack[STACK_MAX];
+  Value* stack_top;
+
+  VM();
+  ~VM(){};
+
+  // set chunk
+  IntepretResult run();
+  IntepretResult interpret(Chunk* chunk);
+  IntepretResult interpret(const char* source);
+  void initVM();
+
+  void reset_stack();
+  void push(Value value);
+  Value pop();
+};
+
+void initVM();
+void freeVM();
+
+extern VM vm;
+#endif
