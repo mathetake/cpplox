@@ -2,6 +2,7 @@
 #define cpplox_vm_h
 
 #include "chunk.hpp"
+#include "value.hpp"
 
 #define STACK_MAX 256
 
@@ -30,6 +31,10 @@ class VM {
   void reset_stack();
   void push(Value value);
   Value pop();
+  Value peek(int distance);
+  static bool isFalsy(Value value);
+
+  void runtimeError(const char* format, ...);
 };
 
 void initVM();

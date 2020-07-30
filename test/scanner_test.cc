@@ -205,6 +205,12 @@ TEST(Scanner, scanToken) {
   {  // identifier
     EXPECT_EQ(Scanner("return").scanToken().type, TokenType::TOKEN_RETURN);
     EXPECT_EQ(Scanner("abc").scanToken().type, TokenType::TOKEN_IDENTIFIER);
+
+    // multiple tokens
+    auto scanner = Scanner("true false nil");
+    EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_TRUE);
+    EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_FALSE);
+    EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_NIL);
   }
 
 #define run_switch(src, exptype)     \

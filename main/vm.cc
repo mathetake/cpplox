@@ -5,6 +5,7 @@
 #include "common.hpp"
 #include "compiler.hpp"
 #include "debug.hpp"
+#include "value.hpp"
 
 #define DEBUG_TRACE_EXECUTION
 
@@ -20,16 +21,38 @@ void VM::push(Value value) { *(stack_top++) = value; };
 
 Value VM::pop() { return *(--stack_top); };
 
+Value VM::peek(int distance) { return stack_top[-1 - distance]; }
+
+bool VM::isFalsy(Value value) {
+  return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+void VM::runtimeError(const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  vfprintf(stderr, format, args);
+  va_end(args);
+  fputs("\n", stderr);
+
+  size_t instruction = *(vm.ip - vm.chunk->code.front()) - 1;
+  int line = vm.chunk->lines[instruction];
+  fprintf(stderr, "[line %d] in script\n", line);
+  reset_stack();
+}
+
 IntepretResult VM::run() {
 #define READ_BYTE() (*ip++)
 #define READ_CONSTANT() (chunk->constants.values[READ_BYTE()])
-#define BINARY_OP(OP) \
-  do {                \
-    double b = pop(); \
-    double a = pop(); \
-    push(a OP b);     \
-  } while (false)
-
+#define BINARY_OP(valueType, OP)                      \
+  do {                                                \
+    if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+      runtimeError("Operands must benumbers.");       \
+      return INTERPRET_RUNTIME_ERROR;                 \
+    }                                                 \
+    double b = AS_NUMBER(pop());                      \
+    double a = AS_NUMBER(pop());                      \
+    push(valueType(a OP b));                          \
+  } while (false);
   uint8_t inst;
   while (true) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -48,31 +71,60 @@ IntepretResult VM::run() {
         push(constant);
         break;
       }
-      case OP_NEGATE: {
-        push(-pop());
+      case OP_NOT: {
+        push(BOOL_VAL(isFalsy(pop())));
         break;
       }
+      case OP_NEGATE: {
+        if (!IS_NUMBER(peek(0))) {
+          runtimeError("Operand must be a number.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        push(NUMBER_VAL(-AS_NUMBER(pop())));
+        break;
+      }
+      case OP_GREATER:
+        BINARY_OP(BOOL_VAL, >);
+        break;
+      case OP_LESS:
+        BINARY_OP(BOOL_VAL, <);
+        break;
       case OP_ADD: {
-        BINARY_OP(+);
+        BINARY_OP(NUMBER_VAL, +);
         break;
       }
       case OP_SUBTRACT: {
-        BINARY_OP(-);
+        BINARY_OP(NUMBER_VAL, -);
         break;
       }
       case OP_MULTIPLY: {
-        BINARY_OP(*);
+        BINARY_OP(NUMBER_VAL, *);
         break;
       }
       case OP_DIVIDE: {
-        BINARY_OP(/);
+        BINARY_OP(NUMBER_VAL, /);
         break;
       }
       case OP_RETURN: {
         return IntepretResult::INTERPRET_OK;
       }
+      case OP_NIL:
+        push(NIL_VAL);
+        break;
+      case OP_TRUE:
+        push(BOOL_VAL(true));
+        break;
+      case OP_FALSE:
+        push(BOOL_VAL(false));
+        break;
       default: {
         return IntepretResult::INTERPRET_RUNTIME_ERROR;
+      }
+      case OP_EQUAL: {
+        Value b = pop();
+        Value a = pop();
+        push(BOOL_VAL(valuesEqual(a, b)));
+        break;
       }
     }
   }

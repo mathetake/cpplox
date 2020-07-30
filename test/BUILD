@@ -18,6 +18,7 @@ cc_test(
     srcs = ["compiler_test.cc"],
     deps = [
         "//main:compiler",
+        "//main:value",
         "@googletest//:gtest_main",
     ],
 )
@@ -27,6 +28,7 @@ cc_test(
     srcs = ["chunk_test.cc"],
     deps = [
         "//main:chunk",
+        "//main:value",
         "@googletest//:gtest_main",
     ],
 )
@@ -44,6 +46,7 @@ cc_test(
     name = "vm",
     srcs = ["vm_test.cc"],
     deps = [
+        "//main:value",
         "//main:vm",
         "@googletest//:gtest_main",
     ],

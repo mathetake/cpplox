@@ -60,6 +60,7 @@ cc_library(
         "common",
         "compiler",
         "debug",
+        "value",
     ],
 )
 

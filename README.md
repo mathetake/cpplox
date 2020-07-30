@@ -1,4 +1,4 @@
-A c++ implementation of lox language compiler/virtual machine
+c++ implementation of lox language compiler/virtual machine with unit tests
 
 
 ```

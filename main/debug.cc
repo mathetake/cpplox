@@ -46,6 +46,20 @@ int disassembleInstruction(Chunk* chunk, int offset) {
       return simpleInstruction("OP_DIVIDE", offset);
     case OptCode::OP_NEGATE:
       return simpleInstruction("OP_NEGATE", offset);
+    case OptCode::OP_NOT:
+      return simpleInstruction("OP_NOT", offset);
+    case OptCode::OP_NIL:
+      return simpleInstruction("OP_NIL", offset);
+    case OptCode::OP_TRUE:
+      return simpleInstruction("OP_TRUE", offset);
+    case OptCode::OP_FALSE:
+      return simpleInstruction("OP_FALSE", offset);
+    case OptCode::OP_EQUAL:
+      return simpleInstruction("OP_EQUAL", offset);
+    case OptCode::OP_GREATER:
+      return simpleInstruction("OP_GREATER", offset);
+    case OptCode::OP_LESS:
+      return simpleInstruction("OP_LESS", offset);
     default:
       printf("unknown optcode: %d\n", inst);
       return offset + 1;

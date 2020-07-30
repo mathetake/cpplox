@@ -2,6 +2,7 @@
 #define cpplox_common_h
 #define DEBUG_PRINT_CODE
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

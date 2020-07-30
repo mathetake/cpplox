@@ -74,4 +74,5 @@ void number(Compiler* compiler);
 void grouping(Compiler* compiler);
 void unary(Compiler* compiler);
 void binary(Compiler* compiler);
+void literal(Compiler* compiler);
 #endif

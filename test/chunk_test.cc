@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include "main/value.hpp"
+
 TEST(Chunk, constructor) {
   auto c = new Chunk;
   EXPECT_EQ(c->code.size(), 0) << "must be zero length vector";
@@ -24,13 +26,13 @@ TEST(Chunk, write_chunk) {
 
 TEST(Chunk, add_const) {
   auto c = new Chunk;
-  auto actual = c->constants.peek();
+  Value* actual = c->constants.peek();
   EXPECT_EQ(actual, nullptr);
 
-  Value v = 100;
+  Value v = NUMBER_VAL(100);
   auto index = c->add_const(v);
   EXPECT_EQ(index, 0);
   actual = c->constants.peek();
   EXPECT_NE(actual, nullptr);
-  EXPECT_EQ(*actual, v);
+  EXPECT_EQ(actual->number, v.number);
 }

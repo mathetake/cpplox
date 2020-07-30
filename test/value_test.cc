@@ -2,9 +2,19 @@
 
 #include <gtest/gtest.h>
 
-TEST(ValueArray, writeValueArray) {
+TEST(Value, writeValueArray) {
   auto array = new ValueArray();
-  auto v = 100;
+  auto v = NUMBER_VAL(100);
   array->writeValueArray(v);
-  EXPECT_EQ(v, *array->peek());
+  EXPECT_EQ(v.number, array->peek()->number);
+}
+
+TEST(Value, valuesEqual) {
+  EXPECT_FALSE(valuesEqual(NUMBER_VAL(1231), NIL_VAL));
+  EXPECT_FALSE(valuesEqual(BOOL_VAL(false), NIL_VAL));
+  EXPECT_FALSE(valuesEqual(BOOL_VAL(false), BOOL_VAL(true)));
+  EXPECT_TRUE(valuesEqual(BOOL_VAL(true), BOOL_VAL(true)));
+  EXPECT_TRUE(valuesEqual(BOOL_VAL(false), BOOL_VAL(false)));
+  EXPECT_TRUE(valuesEqual(NUMBER_VAL(1231), NUMBER_VAL(1231)));
+  EXPECT_FALSE(valuesEqual(NUMBER_VAL(1231), NUMBER_VAL(-1)));
 }

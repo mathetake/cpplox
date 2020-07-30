@@ -20,31 +20,31 @@ void initializeParseRules() {
   parseRules[TOKEN_SEMICOLON] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_SLASH] = ParseRule{NULL, binary, PREC_FACTOR};
   parseRules[TOKEN_STAR] = ParseRule{NULL, binary, PREC_FACTOR};
-  parseRules[TOKEN_BANG] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_BANG_EQUAL] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_BANG] = ParseRule{unary, NULL, PREC_NONE};
+  parseRules[TOKEN_BANG_EQUAL] = ParseRule{NULL, binary, PREC_EQUALITY};
   parseRules[TOKEN_EQUAL] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_EQUAL_EQUAL] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_GREATER] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_GREATER_EQUAL] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_LESS] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_LESS_EQUAL] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_EQUAL_EQUAL] = ParseRule{NULL, binary, PREC_EQUALITY};
+  parseRules[TOKEN_GREATER] = ParseRule{NULL, binary, PREC_COMPARISON};
+  parseRules[TOKEN_GREATER_EQUAL] = ParseRule{NULL, binary, PREC_COMPARISON};
+  parseRules[TOKEN_LESS] = ParseRule{NULL, binary, PREC_COMPARISON};
+  parseRules[TOKEN_LESS_EQUAL] = ParseRule{NULL, binary, PREC_COMPARISON};
   parseRules[TOKEN_IDENTIFIER] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_STRING] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_NUMBER] = ParseRule{number, NULL, PREC_NONE};
   parseRules[TOKEN_AND] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_CLASS] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_ELSE] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_FALSE] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_FALSE] = ParseRule{literal, NULL, PREC_NONE};
   parseRules[TOKEN_FOR] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_FUN] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_IF] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_NIL] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_NIL] = ParseRule{literal, NULL, PREC_NONE};
   parseRules[TOKEN_OR] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_PRINT] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_RETURN] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_SUPER] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_THIS] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_TRUE] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_TRUE] = ParseRule{literal, NULL, PREC_NONE};
   parseRules[TOKEN_VAR] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_WHILE] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_ERROR] = ParseRule{NULL, NULL, PREC_NONE};
@@ -151,7 +151,7 @@ void Compiler::parsePrecedence(Precedence precedence) {
 
 void number(Compiler* compiler) {
   double value = strtod(compiler->parser.previous.start, NULL);
-  compiler->emitConstant(value);
+  compiler->emitConstant(NUMBER_VAL(value));
 }
 
 void grouping(Compiler* compiler) {
@@ -168,6 +168,8 @@ void unary(Compiler* compiler) {
     case TokenType::TOKEN_MINUS:
       compiler->emitByte(OptCode::OP_NEGATE);
       break;
+    case TokenType::TOKEN_BANG:
+      compiler->emitByte(OptCode::OP_NOT);
     default:
       return;
   }
@@ -180,19 +182,53 @@ void binary(Compiler* compiler) {
   compiler->parsePrecedence(static_cast<Precedence>(rule->precedence + 1));
 
   switch (type) {
-    case TOKEN_PLUS:
+    case TokenType::TOKEN_BANG_EQUAL:
+      compiler->emitBytes(OP_EQUAL, OP_NOT);
+      break;
+    case TokenType::TOKEN_EQUAL_EQUAL:
+      compiler->emitByte(OP_EQUAL);
+      break;
+    case TokenType::TOKEN_GREATER:
+      compiler->emitByte(OP_GREATER);
+      break;
+    case TokenType::TOKEN_GREATER_EQUAL:
+      compiler->emitBytes(OP_LESS, OP_NOT);
+      break;
+    case TokenType::TOKEN_LESS:
+      compiler->emitByte(OP_LESS);
+      break;
+    case TokenType::TOKEN_LESS_EQUAL:
+      compiler->emitBytes(OP_GREATER, OP_NOT);
+      break;
+    case TokenType::TOKEN_PLUS:
       compiler->emitByte(OP_ADD);
       break;
-    case TOKEN_MINUS:
+    case TokenType::TOKEN_MINUS:
       compiler->emitByte(OP_SUBTRACT);
       break;
-    case TOKEN_STAR:
+    case TokenType::TOKEN_STAR:
       compiler->emitByte(OP_MULTIPLY);
       break;
-    case TOKEN_SLASH:
+    case TokenType::TOKEN_SLASH:
       compiler->emitByte(OP_DIVIDE);
       break;
     default:
       return;
+  }
+}
+
+void literal(Compiler* compiler) {
+  switch (compiler->parser.previous.type) {
+    case TOKEN_TRUE:
+      compiler->emitByte(OP_TRUE);
+      break;
+    case TOKEN_FALSE:
+      compiler->emitByte(OP_FALSE);
+      break;
+    case TOKEN_NIL:
+      compiler->emitByte(OP_NIL);
+      break;
+    default:
+      break;
   }
 }

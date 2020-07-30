@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include "main/value.hpp"
+
 TEST(Compiler, Constructor) {
   const char* src = "abcde";
   auto chunk = new Chunk;
@@ -64,19 +66,19 @@ TEST(Compiler, emitByte) {
 
 TEST(Compiler, emitConstant) {
   auto compiler = Compiler("this", new Chunk);
-  Value value = 1.1;
+  Value value = NUMBER_VAL(1.1);
   compiler.parser.previous.line = 255;
   compiler.emitConstant(value);
   EXPECT_EQ(compiler.chunk->code[0], OptCode::OP_CONSTANT);
   EXPECT_EQ(compiler.chunk->code[1], 0);
-  EXPECT_EQ(*compiler.chunk->constants.peek(), value);
+  EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, value.number);
 }
 
 TEST(Compiler, makeConstant) {
   auto compiler = Compiler("this", new Chunk);
-  Value value = 1.1;
+  Value value = NUMBER_VAL(1.1);
   EXPECT_EQ(compiler.makeConstant(value), 0);
-  EXPECT_EQ(*compiler.chunk->constants.peek(), value);
+  EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, value.number);
   EXPECT_EQ(compiler.chunk->constants.values.size(), 1);
 }
 
@@ -86,7 +88,7 @@ TEST(Compiler, number) {
 
   number(&compiler);
   EXPECT_EQ(compiler.chunk->constants.values.size(), 1);
-  EXPECT_EQ(*compiler.chunk->constants.peek(), 1.1);
+  EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, 1.1);
 }
 
 TEST(Compiler, grouping) {
@@ -103,50 +105,81 @@ TEST(Compiler, grouping) {
 }
 
 TEST(Compiler, binary) {
-#define run(op, opt_code)                                      \
-  {                                                            \
-    auto compiler = new Compiler("1" #op "2", new Chunk);      \
-    compiler->advance();                                       \
-    binary(compiler);                                          \
-    EXPECT_EQ(compiler->chunk->constants.values.size(), 2);    \
-    EXPECT_EQ(compiler->chunk->constants.values[0], 1);        \
-    EXPECT_EQ(compiler->chunk->constants.values[1], 2);        \
-    EXPECT_EQ(compiler->chunk->code.size(), 5);                \
-    EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT); \
-    EXPECT_EQ(compiler->chunk->code[1], 0);                    \
-    EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_CONSTANT); \
-    EXPECT_EQ(compiler->chunk->code[3], 1);                    \
-    EXPECT_EQ(compiler->chunk->code[4], opt_code);             \
+#define run(op, opt_code, is_pair, second_opt_code)                    \
+  {                                                                    \
+    auto compiler = new Compiler("1" #op "2", new Chunk);              \
+    compiler->advance();                                               \
+    binary(compiler);                                                  \
+    EXPECT_EQ(compiler->chunk->constants.values.size(), 2);            \
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[0].number, 1);  \
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[1].number, 2);  \
+    EXPECT_EQ(compiler->chunk->code.size(), is_pair ? 6 : 5);          \
+    EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);         \
+    EXPECT_EQ(compiler->chunk->code[1], 0);                            \
+    EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_CONSTANT);         \
+    EXPECT_EQ(compiler->chunk->code[3], 1);                            \
+    EXPECT_EQ(compiler->chunk->code[4], opt_code);                     \
+    if (is_pair) EXPECT_EQ(compiler->chunk->code[5], second_opt_code); \
   }
 
-  run(+, OptCode::OP_ADD);
-  run(-, OptCode::OP_SUBTRACT);
-  run(*, OptCode::OP_MULTIPLY);
-  run(/, OptCode::OP_DIVIDE);
-
+  run(+, OptCode::OP_ADD, false, NULL);
+  run(-, OptCode::OP_SUBTRACT, false, NULL);
+  run(*, OptCode::OP_MULTIPLY, false, NULL);
+  run(/, OptCode::OP_DIVIDE, false, NULL);
+  run(==, OptCode::OP_EQUAL, false, NULL);
+  run(>, OptCode::OP_GREATER, false, NULL);
+  run(<, OptCode::OP_LESS, false, NULL);
+  run(<=, OptCode::OP_GREATER, true, OptCode::OP_NOT);
+  run(>=, OptCode::OP_LESS, true, OptCode::OP_NOT);
+  run(!=, OptCode::OP_EQUAL, true, OptCode::OP_NOT);
 #undef run
 }
 
 TEST(Compiler, unary) {
-  auto compiler = new Compiler("-100", new Chunk);
-  compiler->advance();  // current on -
-  unary(compiler);
-  EXPECT_EQ(compiler->chunk->constants.values.size(), 1);
-  EXPECT_EQ(*compiler->chunk->constants.peek(), 100);
-  EXPECT_EQ(compiler->chunk->code.size(), 3);
-  EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
-  EXPECT_EQ(compiler->chunk->code[1], 0);
-  EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NEGATE);
+  {
+    auto compiler = new Compiler("-100", new Chunk);
+    compiler->advance();  // previous on -
+    unary(compiler);
+    EXPECT_EQ(compiler->chunk->constants.values.size(), 1);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.peek()->number, 100);
+    EXPECT_EQ(compiler->chunk->code.size(), 3);
+    EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
+    EXPECT_EQ(compiler->chunk->code[1], 0);
+    EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NEGATE);
+  }
+  {
+    auto compiler = new Compiler("!true", new Chunk);
+    compiler->advance();  // previous on !
+    unary(compiler);
+    ASSERT_EQ(compiler->chunk->code.size(), 2);
+    EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_TRUE);
+    EXPECT_EQ(compiler->chunk->code[1], OptCode::OP_NOT);
+  }
 }
+
+TEST(Compiler, literal) {
+  auto compiler = new Compiler("false true nil", new Chunk);
+  compiler->advance(), compiler->advance();
+  literal(compiler);
+  ASSERT_TRUE(compiler->chunk->code.size() > 0);
+  EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_FALSE);
+  compiler->advance();
+  literal(compiler);
+  EXPECT_EQ(compiler->chunk->code[1], OptCode::OP_TRUE);
+  compiler->advance();
+  literal(compiler);
+  EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NIL);
+}
+
 TEST(Compiler, expression) {
   {
     auto compiler = new Compiler("1+(2*3)", new Chunk);
     compiler->advance();  // current on 1
     compiler->expression();
     EXPECT_EQ(compiler->chunk->constants.values.size(), 3);
-    EXPECT_EQ(compiler->chunk->constants.values[0], 1);
-    EXPECT_EQ(compiler->chunk->constants.values[1], 2);
-    EXPECT_EQ(compiler->chunk->constants.values[2], 3);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[0].number, 1);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[1].number, 2);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[2].number, 3);
 
     EXPECT_EQ(compiler->chunk->code.size(), 8);
     EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
@@ -166,10 +199,10 @@ TEST(Compiler, expression) {
     compiler->advance();  // current on 1
     compiler->expression();
     EXPECT_EQ(compiler->chunk->constants.values.size(), 4);
-    EXPECT_EQ(compiler->chunk->constants.values[0], 1);
-    EXPECT_EQ(compiler->chunk->constants.values[1], 2);
-    EXPECT_EQ(compiler->chunk->constants.values[2], 3);
-    EXPECT_EQ(compiler->chunk->constants.values[3], 1.1);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[0].number, 1);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[1].number, 2);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[2].number, 3);
+    EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[3].number, 1.1);
 
     EXPECT_EQ(compiler->chunk->code.size(), 11);
     EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
@@ -195,7 +228,7 @@ TEST(Compiler, parsePrecedence) {
   compiler->advance();  // current on -
   compiler->parsePrecedence(Precedence::PREC_TERM);
   EXPECT_EQ(compiler->chunk->constants.values.size(), 1);
-  EXPECT_EQ(*compiler->chunk->constants.peek(), 1.1);
+  EXPECT_DOUBLE_EQ(compiler->chunk->constants.peek()->number, 1.1);
 
   EXPECT_EQ(compiler->chunk->code.size(), 3);
   EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
