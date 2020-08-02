@@ -29,7 +29,7 @@ void initializeParseRules() {
   parseRules[TOKEN_LESS] = ParseRule{NULL, binary, PREC_COMPARISON};
   parseRules[TOKEN_LESS_EQUAL] = ParseRule{NULL, binary, PREC_COMPARISON};
   parseRules[TOKEN_IDENTIFIER] = ParseRule{NULL, NULL, PREC_NONE};
-  parseRules[TOKEN_STRING] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_STRING] = ParseRule{string, NULL, PREC_NONE};
   parseRules[TOKEN_NUMBER] = ParseRule{number, NULL, PREC_NONE};
   parseRules[TOKEN_AND] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_CLASS] = ParseRule{NULL, NULL, PREC_NONE};
@@ -231,4 +231,9 @@ void literal(Compiler* compiler) {
     default:
       break;
   }
+}
+
+void string(Compiler* compiler) {
+  compiler->emitConstant(
+      OBJ_VAL(getStringObject(compiler->parser.previous.start)));
 }

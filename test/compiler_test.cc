@@ -171,6 +171,21 @@ TEST(Compiler, literal) {
   EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NIL);
 }
 
+TEST(Compiler, string) {
+  std::string raw = "\"this is string\"";
+  auto compiler = new Compiler(raw.c_str(), new Chunk);
+  compiler->advance(), compiler->advance();
+  string(compiler);
+  ASSERT_EQ(compiler->chunk->code.size(), 2);
+  ASSERT_EQ(compiler->chunk->constants.values.size(), 1);
+  EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler->chunk->code[1], 0);
+
+  auto val = compiler->chunk->constants.values[0];
+  ASSERT_TRUE(IS_OBJ(val));
+  EXPECT_EQ(AS_STRING(val)->str, raw);
+}
+
 TEST(Compiler, expression) {
   {
     auto compiler = new Compiler("1+(2*3)", new Chunk);

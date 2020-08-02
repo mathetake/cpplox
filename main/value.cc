@@ -1,5 +1,7 @@
 #include "value.hpp"
 
+#include "object.hpp"
+
 void ValueArray::writeValueArray(Value value) { values.push_back(value); }
 
 void printValue(Value value) {
@@ -12,6 +14,9 @@ void printValue(Value value) {
       break;
     case ValueType::VAL_NUMBER:
       printf("%g", AS_NUMBER(value));
+      break;
+    case ValueType::VAL_OBJ:
+      printObject(value);
       break;
     default:
       break;
@@ -34,5 +39,9 @@ bool valuesEqual(Value a, Value b) {
       return AS_NUMBER(a) == AS_NUMBER(b);
     case ValueType::VAL_NIL:
       return true;
+    case ValueType::VAL_OBJ:
+      ObjString* aString = ((ObjString*)AS_OBJ(a));
+      ObjString* bString = ((ObjString*)AS_OBJ(b));
+      return aString->str == bString->str;
   }
 }

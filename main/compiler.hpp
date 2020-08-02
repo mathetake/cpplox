@@ -2,6 +2,7 @@
 #define cpplox_compiler_h
 #include "chunk.hpp"
 #include "common.hpp"
+#include "object.hpp"
 #include "scanner.hpp"
 
 enum Precedence {
@@ -75,4 +76,5 @@ void grouping(Compiler* compiler);
 void unary(Compiler* compiler);
 void binary(Compiler* compiler);
 void literal(Compiler* compiler);
+void string(Compiler* compiler);
 #endif
