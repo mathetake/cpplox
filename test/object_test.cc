@@ -26,3 +26,11 @@ TEST(Object, allocateStringObject) {
 
   EXPECT_EQ(vm.objects, (Obj*)actual);
 }
+
+TEST(Object, hashString) {
+  auto a = hashString("a", 1);
+  auto b = hashString("b", 1);
+
+  EXPECT_EQ(a, hashString("a", 1));
+  EXPECT_NE(a, b);
+}

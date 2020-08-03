@@ -19,6 +19,15 @@ cc_test(
 )
 
 cc_test(
+    name = "table",
+    srcs = ["table_test.cc"],
+    deps = [
+        "//main:libs",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "object",
     srcs = ["object_test.cc"],
     deps = [

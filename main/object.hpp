@@ -27,6 +27,7 @@ class ObjString : public Obj {
   ObjString(const char* chars, int length);
   ObjString(std::string str);
   std::string str;
+  uint32_t hash;
 };
 
 bool isObjType(Value value, ObjType type);
@@ -34,5 +35,7 @@ bool isObjType(Value value, ObjType type);
 ObjString* allocateStringObject(const char* chars, int length);
 
 void printObject(Value value);
+
+uint32_t hashString(const char* key, int length);
 
 #endif

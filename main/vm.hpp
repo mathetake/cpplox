@@ -2,6 +2,7 @@
 #define cpplox_vm_h
 
 #include "chunk.hpp"
+#include "table.hpp"
 #include "value.hpp"
 
 #define STACK_MAX 256
@@ -19,6 +20,7 @@ class VM {
   Value stack[STACK_MAX];
   Value* stack_top;
   Obj* objects;
+  Table strings;
 
   VM();
   ~VM();
