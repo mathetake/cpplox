@@ -20,8 +20,8 @@ TEST(Value, valuesEqual) {
   EXPECT_TRUE(valuesEqual(NUMBER_VAL(1231), NUMBER_VAL(1231)));
   EXPECT_FALSE(valuesEqual(NUMBER_VAL(1231), NUMBER_VAL(-1)));
 
-  EXPECT_TRUE(valuesEqual(OBJ_VAL(getStringObject("abcd")),
-                          OBJ_VAL(getStringObject("abcd"))));
-  EXPECT_FALSE(valuesEqual(OBJ_VAL(getStringObject("abcd")),
-                           OBJ_VAL(getStringObject("aaa"))));
+  EXPECT_TRUE(valuesEqual(OBJ_VAL(allocateStringObject("abcd", 4)),
+                          OBJ_VAL(allocateStringObject("abcd", 4))));
+  EXPECT_FALSE(valuesEqual(OBJ_VAL(allocateStringObject("abcd", 4)),
+                           OBJ_VAL(allocateStringObject("aaa", 3))));
 }

@@ -235,5 +235,6 @@ void literal(Compiler* compiler) {
 
 void string(Compiler* compiler) {
   compiler->emitConstant(
-      OBJ_VAL(getStringObject(compiler->parser.previous.start)));
+      OBJ_VAL(allocateStringObject(compiler->parser.previous.start + 1,
+                                   compiler->parser.previous.length - 2)));
 }

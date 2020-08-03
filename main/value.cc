@@ -44,4 +44,5 @@ bool valuesEqual(Value a, Value b) {
       ObjString* bString = ((ObjString*)AS_OBJ(b));
       return aString->str == bString->str;
   }
+  return false;  // unreachable
 }

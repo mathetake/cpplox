@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "main/object.hpp"
 #include "main/value.hpp"
 
 TEST(VM, interpret) {
@@ -139,4 +140,28 @@ TEST(VM, isFalsy) {
   EXPECT_TRUE(VM::isFalsy(NIL_VAL));
   EXPECT_TRUE(VM::isFalsy(BOOL_VAL(false)));
   EXPECT_FALSE(VM::isFalsy(BOOL_VAL(true)));
+}
+
+TEST(VM, concatenate) {
+  VM vm_local{};
+  vm_local.initVM();
+  vm_local.push(OBJ_VAL(allocateStringObject("ab", 2)));
+  vm_local.push(OBJ_VAL(allocateStringObject("cd", 2)));
+  auto a = std::string("aaa", 1);
+  EXPECT_EQ(a.size(), 1);
+
+  vm_local.concatenate();
+  EXPECT_EQ(AS_STRING(vm_local.pop())->str, "abcd");
+}
+
+TEST(VM, freeVM) {
+  VM vm_local{};
+  vm_local.initVM();
+  Obj* first = new Obj{};
+  Obj* second = new Obj{};
+
+  first->next = second;
+  vm_local.objects = first;
+  vm_local.freeVM();
+  EXPECT_EQ(vm_local.objects, nullptr);
 }

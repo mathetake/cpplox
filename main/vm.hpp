@@ -18,15 +18,17 @@ class VM {
   uint8_t* ip;
   Value stack[STACK_MAX];
   Value* stack_top;
+  Obj* objects;
 
   VM();
-  ~VM(){};
+  ~VM();
 
   // set chunk
   IntepretResult run();
   IntepretResult interpret(Chunk* chunk);
   IntepretResult interpret(const char* source);
   void initVM();
+  void freeVM();
 
   void reset_stack();
   void push(Value value);
@@ -34,6 +36,7 @@ class VM {
   Value peek(int distance);
   static bool isFalsy(Value value);
 
+  void concatenate();
   void runtimeError(const char* format, ...);
 };
 

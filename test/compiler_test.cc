@@ -183,7 +183,7 @@ TEST(Compiler, string) {
 
   auto val = compiler->chunk->constants.values[0];
   ASSERT_TRUE(IS_OBJ(val));
-  EXPECT_EQ(AS_STRING(val)->str, raw);
+  EXPECT_EQ(AS_STRING(val)->str, "this is string");
 }
 
 TEST(Compiler, expression) {

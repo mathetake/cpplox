@@ -212,6 +212,13 @@ TEST(Scanner, scanToken) {
     EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_FALSE);
     EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_NIL);
   }
+  {
+    // multiple string;
+    auto scanner = Scanner("\"a\" + \"bc\"");
+    EXPECT_EQ(scanner.scanToken().length, 3);
+    EXPECT_EQ(scanner.scanToken().type, TokenType::TOKEN_PLUS);
+    EXPECT_EQ(scanner.scanToken().length, 4);
+  }
 
 #define run_switch(src, exptype)     \
   {                                  \

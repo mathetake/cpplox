@@ -5,17 +5,32 @@
 #include "common.hpp"
 #include "compiler.hpp"
 #include "debug.hpp"
+#include "object.hpp"
 #include "value.hpp"
 
 #define DEBUG_TRACE_EXECUTION
-
 VM vm{};
 
-VM::VM() { reset_stack(); }
+VM::VM() {
+  objects = nullptr;
+  reset_stack();
+}
+
+VM::~VM() { freeVM(); }
 
 void VM::reset_stack() { stack_top = stack; }
 
 void VM::initVM() { reset_stack(); };
+
+void VM::freeVM() {
+  auto obj = objects;
+  while (obj != NULL) {
+    auto next = obj->next;
+    delete obj;
+    obj = next;
+  }
+  objects = nullptr;
+};
 
 void VM::push(Value value) { *(stack_top++) = value; };
 
@@ -90,7 +105,16 @@ IntepretResult VM::run() {
         BINARY_OP(BOOL_VAL, <);
         break;
       case OP_ADD: {
-        BINARY_OP(NUMBER_VAL, +);
+        if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+          concatenate();
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+          double b = AS_NUMBER(pop());
+          double a = AS_NUMBER(pop());
+          push(NUMBER_VAL(a + b));
+        } else {
+          runtimeError("Operands must be two numbers or two strings.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
         break;
       }
       case OP_SUBTRACT: {
@@ -151,3 +175,14 @@ IntepretResult VM::interpret(const char* source) {
   interpret(&chunk);
   return run();
 }
+
+void VM::concatenate() {
+  auto b = AS_STRING(pop());
+  auto a = AS_STRING(pop());
+
+  ObjString* ret = new ObjString{
+      a->str + b->str,
+  };
+
+  push(OBJ_VAL(ret));
+};
