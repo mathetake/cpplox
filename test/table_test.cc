@@ -35,6 +35,15 @@ TEST(Table, deleteEntry) {
   ASSERT_FALSE(findEntry(table.entries, deleteTarget)->key);
 }
 
+TEST(Table, findString) {
+  auto table = Table{};
+  auto target = new ObjString("key");
+  table.set(target, NUMBER_VAL(1111));
+  ASSERT_EQ(table.findString(new ObjString("key")), target);
+
+  ASSERT_FALSE(table.findString(new ObjString("not-exists")));
+}
+
 TEST(Table, findEntry) {
   auto table = Table{};
   auto key = new ObjString("key");

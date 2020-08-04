@@ -25,6 +25,8 @@ TEST(Object, allocateStringObject) {
   EXPECT_EQ(actual->str, "abcd");
 
   EXPECT_EQ(vm.objects, (Obj*)actual);
+  EXPECT_EQ(vm.strings.count, 2);
+  EXPECT_EQ(vm.strings.findString(new ObjString("abcd")), actual);
 }
 
 TEST(Object, hashString) {

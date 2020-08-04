@@ -36,7 +36,7 @@ class Table {
   bool set(ObjString* key, Value value);
   bool deleteKey(ObjString* key);
   void adjustCapacity(int cap);
-
+  ObjString* findString(ObjString* target);
   void addAll(Table* src);
 };
 

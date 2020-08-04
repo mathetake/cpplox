@@ -53,6 +53,26 @@ Entry* findEntry(std::vector<Entry>* entries, ObjString* key) {
   return nullptr;
 }
 
+ObjString* Table::findString(ObjString* target) {
+  if (count == 0) return nullptr;
+
+  uint32_t index = target->hash % entries->capacity();
+  while (true) {
+    Entry* entry = &(*entries)[index];
+
+    if (entry->key == NULL) {
+      // Stop if we find an empty non-tombstone entry.
+      if (IS_NIL(entry->value)) return NULL;
+    } else if (entry->key->str.length() == target->str.length() &&
+               entry->key->hash == target->hash &&
+               entry->key->str == target->str) {
+      return entry->key;
+    }
+
+    index = (index + 1) % entries->capacity();
+  }
+}
+
 void Table::adjustCapacity(int cap) {
   auto old = entries;
   entries = new std::vector<Entry>{};

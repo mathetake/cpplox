@@ -22,6 +22,8 @@ bool isObjType(Value value, ObjType type) {
 
 ObjString* allocateStringObject(const char* chars, int length) {
   auto string = new ObjString(chars, length);
+  if (auto found = vm.strings.findString(string); found != nullptr)
+    return found;
   vm.objects = string;
   vm.strings.set(string, NIL_VAL);
   return string;
