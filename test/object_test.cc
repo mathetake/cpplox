@@ -4,10 +4,7 @@
 
 #include "main/vm.hpp"
 
-TEST(Object, printObject) {
-  const char* raw = "abcd";
-  printObject(OBJ_VAL(new ObjString("aaaa")));
-}
+TEST(Object, printObject) { printObject(OBJ_VAL(new ObjString("aaaa"))); }
 
 TEST(Object, isObjType) {
   EXPECT_TRUE(

@@ -376,3 +376,61 @@ TEST(Compiler, parsePrecedence) {
   EXPECT_EQ(compiler->chunk->code[1], 0);
   EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NEGATE);
 }
+
+TEST(Compiler, addLocal) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("", new Chunk, new Table{}, &obj);
+  Token token;
+
+  // too many
+  compiler->localCount = UINT8_COUNT;
+  compiler->addLocal(token);
+  ASSERT_EQ(compiler->localCount, UINT8_COUNT);
+
+  compiler->scopeDepth = 1;
+  compiler->localCount = 10;
+  token.line = 100;
+  compiler->addLocal(token);
+  ASSERT_EQ(compiler->locals[10].depth, 1);
+  ASSERT_EQ(compiler->locals[10].name.line, 100);
+}
+
+TEST(Compiler, declareVariable) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("a a", new Chunk, new Table{}, &obj);
+  compiler->advance(), compiler->advance();  // previous on a
+  compiler->localCount = 1;
+  compiler->locals[0].depth = 1;
+  compiler->scopeDepth = 2;
+  compiler->declareVariable();
+
+  ASSERT_EQ(compiler->localCount, 2);
+  EXPECT_EQ(compiler->locals[1].depth, 2);
+  EXPECT_EQ(*(compiler->locals[1].name.start), 'a');
+
+  compiler->advance();
+  compiler->declareVariable();  // already defined
+  EXPECT_TRUE(compiler->parser.panicMode);
+}
+
+TEST(Compiler, beginScope) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("", new Chunk, new Table{}, &obj);
+  compiler->beginScope();
+  EXPECT_EQ(compiler->scopeDepth, 1);
+}
+
+TEST(Compiler, endScope) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("a a", new Chunk, new Table{}, &obj);
+  compiler->scopeDepth = 10;
+
+  auto count = 100;
+  compiler->localCount = count;
+  for (auto i = 0; i < count; i++) compiler->locals[i].depth = 100;
+  compiler->endScope();
+  ASSERT_EQ(compiler->scopeDepth, 9);
+  ASSERT_EQ(compiler->chunk->code.size(), count);
+  for (auto i = 0; i < count; i++)
+    EXPECT_EQ(compiler->chunk->code[i], OptCode::OP_POP);
+}

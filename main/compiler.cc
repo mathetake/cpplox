@@ -58,6 +58,8 @@ Compiler::Compiler(const char* source, Chunk* targetChunk, Table* strTable,
   chunk = targetChunk;
   objects = obs;
   stringTable = strTable;
+  localCount = 0;
+  scopeDepth = 0;
 
   initializeParseRules();
 }
@@ -93,8 +95,29 @@ void Compiler::declaration() {
 void Compiler::statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_LEFT_BRACE)) {
+    beginScope();
+    block();
+    endScope();
   } else {
     expressionStatement();
+  }
+}
+
+void Compiler::block() {
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    declaration();
+  }
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+}
+
+void Compiler::beginScope() { scopeDepth++; }
+
+void Compiler::endScope() {
+  scopeDepth--;
+  while (localCount > 0 && locals[localCount - 1].depth > scopeDepth) {
+    emitByte(OP_POP);
+    localCount--;
   }
 }
 
@@ -108,12 +131,15 @@ void Compiler::varDeclaration() {
   }
   consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
-  defineVariable(global);
+  if (scopeDepth == 0) {
+    defineVariable(global);
+  }
 }
 
 void Compiler::defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
+
 void Compiler::namedVariable(Token name, bool canAssign) {
   uint8_t arg = identifierConstant(&name);
   if (canAssign && match(TokenType::TOKEN_EQUAL)) {
@@ -126,7 +152,39 @@ void Compiler::namedVariable(Token name, bool canAssign) {
 
 uint8_t Compiler::parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
+
+  if (scopeDepth > 0) {
+    // local variables
+    declareVariable();
+    return 0;
+  }
+
   return identifierConstant(&parser.previous);
+}
+
+void Compiler::declareVariable() {
+  Token* name = &parser.previous;
+  for (int i = localCount - 1; i >= 0; i--) {
+    Local* local = &locals[i];
+    if (local->depth != -1 && local->depth < scopeDepth) {
+      break;
+    }
+    if (identifiersEqual(name, &local->name)) {
+      error("Variable with this name already declared in this scope.");
+    }
+  }
+
+  addLocal(*name);
+}
+
+void Compiler::addLocal(Token name) {
+  if (localCount == UINT8_COUNT) {
+    error("Too many local variables in function.");
+    return;
+  }
+  Local* local = &locals[localCount++];
+  local->name = name;
+  local->depth = scopeDepth;
 }
 
 uint8_t Compiler::identifierConstant(const Token* name) {

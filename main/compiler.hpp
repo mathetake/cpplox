@@ -28,6 +28,12 @@ class Parser {
   bool panicMode;
 };
 
+class Local {
+ public:
+  Token name;
+  int depth;
+};
+
 class Compiler {
  public:
   Scanner scanner;
@@ -35,6 +41,10 @@ class Compiler {
   Chunk* chunk;
   Table* stringTable;
   Obj** objects;
+
+  Local locals[UINT8_COUNT];
+  int localCount;
+  int scopeDepth;
 
   Compiler(const char* source, Chunk* targetChunk, Table* strTable, Obj** obs);
 
@@ -55,9 +65,11 @@ class Compiler {
 
   void statement();
   void declaration();
+  void block();
   void printStatement();
   void expressionStatement();
   void varDeclaration();
+  void declareVariable();
   uint8_t parseVariable(const char* errorMessage);
   uint8_t identifierConstant(const Token* name);
   void defineVariable(uint8_t global);
@@ -65,6 +77,10 @@ class Compiler {
 
   void parsePrecedence(Precedence precedence);
   void expression();
+
+  void beginScope();
+  void endScope();
+  void addLocal(Token name);
 
   // errors
   void errorAt(Token* token, const char* message);

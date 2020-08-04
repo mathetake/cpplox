@@ -91,4 +91,5 @@ class Scanner {
   Token errorToken(const char* message);
 };
 
+bool identifiersEqual(Token* a, Token* b);
 #endif

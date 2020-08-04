@@ -251,3 +251,17 @@ TEST(Scanner, scanToken) {
   run_switch(">", TokenType::TOKEN_GREATER);
 #undef run_switch
 }
+
+Token* getTokenFromString(std::string str) {
+  auto ret = new Token{};
+  ret->length = str.size();
+  ret->start = str.c_str();
+  return ret;
+}
+
+TEST(Token, identifiersEqual) {
+  EXPECT_TRUE(
+      identifiersEqual(getTokenFromString("aaaa"), getTokenFromString("aaaa")));
+  EXPECT_FALSE(
+      identifiersEqual(getTokenFromString("bbbb"), getTokenFromString("aaaa")));
+}
