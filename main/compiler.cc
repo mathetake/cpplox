@@ -130,24 +130,45 @@ void Compiler::varDeclaration() {
     emitByte(OP_NIL);
   }
   consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
-
-  if (scopeDepth == 0) {
-    defineVariable(global);
-  }
+  defineVariable(global);
 }
 
 void Compiler::defineVariable(uint8_t global) {
+  if (scopeDepth > 0) {
+    markInitialized();
+    return;
+  }
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
 void Compiler::namedVariable(Token name, bool canAssign) {
-  uint8_t arg = identifierConstant(&name);
+  uint8_t getOp, setOp;
+  auto arg = resolveLocal(&name);
+  if (arg != -1) {
+    getOp = OP_GET_LOCAL;
+    setOp = OP_SET_LOCAL;
+  } else {
+    arg = identifierConstant(&name);
+    getOp = OP_GET_GLOBAL;
+    setOp = OP_SET_GLOBAL;
+  }
+
   if (canAssign && match(TokenType::TOKEN_EQUAL)) {
     expression();
-    emitBytes(OP_SET_GLOBAL, arg);
+    emitBytes(setOp, arg);
   } else {
-    emitBytes(OP_GET_GLOBAL, arg);
+    emitBytes(getOp, arg);
   }
+}
+
+int Compiler::resolveLocal(Token* name) {
+  for (int i = localCount - 1; i >= 0; i--) {
+    Local* local = &locals[i];
+    if (identifiersEqual(&local->name, name)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 uint8_t Compiler::parseVariable(const char* errorMessage) {
@@ -184,8 +205,10 @@ void Compiler::addLocal(Token name) {
   }
   Local* local = &locals[localCount++];
   local->name = name;
-  local->depth = scopeDepth;
+  local->depth = -1;
 }
+
+void Compiler::markInitialized() { locals[localCount - 1].depth = scopeDepth; }
 
 uint8_t Compiler::identifierConstant(const Token* name) {
   return makeConstant(OBJ_VAL(

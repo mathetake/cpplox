@@ -81,6 +81,8 @@ class Compiler {
   void beginScope();
   void endScope();
   void addLocal(Token name);
+  void markInitialized();
+  int resolveLocal(Token* name);
 
   // errors
   void errorAt(Token* token, const char* message);

@@ -171,6 +171,11 @@ IntepretResult VM::run() {
         push(value);
         break;
       }
+      case OP_GET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        push(stack[slot]);
+        break;
+      }
       case OP_SET_GLOBAL: {
         ObjString* name = READ_STRING();
         if (globals.set(name, peek(0))) {
@@ -178,6 +183,11 @@ IntepretResult VM::run() {
           runtimeError("Undefined variable '%s'.", name->str.c_str());
           return INTERPRET_RUNTIME_ERROR;
         }
+        break;
+      }
+      case OP_SET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        stack[slot] = peek(0);
         break;
       }
       case OP_RETURN: {
