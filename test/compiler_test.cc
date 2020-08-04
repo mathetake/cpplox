@@ -168,7 +168,7 @@ TEST(Compiler, number) {
   auto compiler = Compiler("1.1", new Chunk, new Table{}, &obj);
   compiler.advance(), compiler.advance();
 
-  number(&compiler);
+  number(&compiler, false);
   EXPECT_EQ(compiler.chunk->constants.values.size(), 1);
   EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, 1.1);
 }
@@ -177,7 +177,7 @@ TEST(Compiler, grouping) {
   auto obj = new Obj{};
   auto compiler = new Compiler("(1+2)", new Chunk, new Table{}, &obj);
   compiler->advance();  // current on (
-  grouping(compiler);
+  grouping(compiler, false);
   EXPECT_EQ(compiler->chunk->constants.values.size(), 2);
   EXPECT_EQ(compiler->chunk->code.size(), 5);
   EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
@@ -193,7 +193,7 @@ TEST(Compiler, binary) {
     auto obj = new Obj{};                                                    \
     auto compiler = new Compiler("1" #op "2", new Chunk, new Table{}, &obj); \
     compiler->advance();                                                     \
-    binary(compiler);                                                        \
+    binary(compiler, false);                                                 \
     EXPECT_EQ(compiler->chunk->constants.values.size(), 2);                  \
     EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[0].number, 1);        \
     EXPECT_DOUBLE_EQ(compiler->chunk->constants.values[1].number, 2);        \
@@ -226,7 +226,7 @@ TEST(Compiler, unary) {
     auto obj = new Obj{};
     auto compiler = new Compiler("-100", new Chunk, new Table{}, &obj);
     compiler->advance();  // previous on -
-    unary(compiler);
+    unary(compiler, false);
     EXPECT_EQ(compiler->chunk->constants.values.size(), 1);
     EXPECT_DOUBLE_EQ(compiler->chunk->constants.peek()->number, 100);
     EXPECT_EQ(compiler->chunk->code.size(), 3);
@@ -238,7 +238,7 @@ TEST(Compiler, unary) {
     auto obj = new Obj{};
     auto compiler = new Compiler("!true", new Chunk, new Table{}, &obj);
     compiler->advance();  // previous on !
-    unary(compiler);
+    unary(compiler, false);
     ASSERT_EQ(compiler->chunk->code.size(), 2);
     EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_TRUE);
     EXPECT_EQ(compiler->chunk->code[1], OptCode::OP_NOT);
@@ -249,15 +249,48 @@ TEST(Compiler, literal) {
   auto obj = new Obj{};
   auto compiler = new Compiler("false true nil", new Chunk, new Table{}, &obj);
   compiler->advance(), compiler->advance();
-  literal(compiler);
+  literal(compiler, false);
   ASSERT_TRUE(compiler->chunk->code.size() > 0);
   EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_FALSE);
   compiler->advance();
-  literal(compiler);
+  literal(compiler, false);
   EXPECT_EQ(compiler->chunk->code[1], OptCode::OP_TRUE);
   compiler->advance();
-  literal(compiler);
+  literal(compiler, false);
   EXPECT_EQ(compiler->chunk->code[2], OptCode::OP_NIL);
+}
+
+TEST(Compiler, namedVariable) {
+  {
+    auto obj = new Obj{};
+    auto compiler = new Compiler("variable", new Chunk, new Table{}, &obj);
+    compiler->advance();
+    compiler->advance();
+    compiler->namedVariable(compiler->parser.previous, false);
+    ASSERT_EQ(compiler->chunk->constants.values.size(), 1);
+    ASSERT_EQ(((ObjString*)(compiler->chunk->constants.peek()->obj))->str,
+              "variable");
+    ASSERT_EQ(compiler->chunk->code.size(), 2);
+    ASSERT_EQ(compiler->chunk->code[0], OptCode::OP_GET_GLOBAL);
+    ASSERT_EQ(compiler->chunk->code[1], 0);
+  }
+  {
+    auto obj = new Obj{};
+    auto compiler =
+        new Compiler("variable = 1000.1", new Chunk, new Table{}, &obj);
+    compiler->advance();
+    compiler->advance();
+    compiler->namedVariable(compiler->parser.previous, true);
+    ASSERT_EQ(compiler->chunk->constants.values.size(), 2);
+    ASSERT_EQ(((ObjString*)(compiler->chunk->constants.values[0].obj))->str,
+              "variable");
+    ASSERT_DOUBLE_EQ(compiler->chunk->constants.values[1].number, 1000.1);
+    ASSERT_EQ(compiler->chunk->code.size(), 4);
+    ASSERT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);
+    ASSERT_EQ(compiler->chunk->code[1], 1);
+    ASSERT_EQ(compiler->chunk->code[2], OptCode::OP_SET_GLOBAL);
+    ASSERT_EQ(compiler->chunk->code[3], 0);
+  }
 }
 
 TEST(Compiler, string) {
@@ -265,7 +298,7 @@ TEST(Compiler, string) {
   std::string raw = "\"this is string\"";
   auto compiler = new Compiler(raw.c_str(), new Chunk, new Table{}, &obj);
   compiler->advance(), compiler->advance();
-  string(compiler);
+  string(compiler, false);
   ASSERT_EQ(compiler->chunk->code.size(), 2);
   ASSERT_EQ(compiler->chunk->constants.values.size(), 1);
   EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_CONSTANT);

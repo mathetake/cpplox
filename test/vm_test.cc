@@ -33,6 +33,20 @@ TEST(VM, OP_DEFINE_GLOBAL) {
   EXPECT_DOUBLE_EQ(actual.number, 1.2);
 }
 
+TEST(VM, OP_GET_GLOBAL) {
+  auto variable = new ObjString("variable name");
+  auto c = new Chunk;
+  c->write_chunk(OptCode::OP_GET_GLOBAL, 123);
+  c->write_chunk(c->add_const(OBJ_VAL(variable)), 123);
+  c->write_chunk(OptCode::OP_RETURN, 123);
+
+  VM vm_local{};
+  vm_local.globals.set(variable, NUMBER_VAL(1.2));
+  vm_local.interpret(c);
+  vm_local.run();
+  EXPECT_DOUBLE_EQ(vm_local.peek(0).number, 1.2);
+}
+
 TEST(VM, run_arithmetic) {
   auto c = new Chunk;
   int constant = c->add_const(NUMBER_VAL(1.2));

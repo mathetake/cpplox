@@ -114,9 +114,14 @@ void Compiler::varDeclaration() {
 void Compiler::defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
-void Compiler::namedVariable(Token name) {
+void Compiler::namedVariable(Token name, bool canAssign) {
   uint8_t arg = identifierConstant(&name);
-  emitBytes(OP_GET_GLOBAL, arg);
+  if (canAssign && match(TokenType::TOKEN_EQUAL)) {
+    expression();
+    emitBytes(OP_SET_GLOBAL, arg);
+  } else {
+    emitBytes(OP_GET_GLOBAL, arg);
+  }
 }
 
 uint8_t Compiler::parseVariable(const char* errorMessage) {
@@ -204,12 +209,8 @@ void Compiler::synchronize() {
       case TOKEN_PRINT:
       case TOKEN_RETURN:
         return;
-
-      default:
-          // Do nothing.
-          ;
+      default:;
     }
-
     advance();
   }
 }
@@ -239,26 +240,28 @@ void Compiler::parsePrecedence(Precedence precedence) {
   if (prefixRule == nullptr) {
     return;
   }
-  prefixRule(this);
+
+  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  prefixRule(this, canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
     auto infixRule = getRule(parser.previous.type)->infix;
-    infixRule(this);
+    infixRule(this, canAssign);
   }
 };
 
-void number(Compiler* compiler) {
+void number(Compiler* compiler, bool canAssign) {
   double value = strtod(compiler->parser.previous.start, NULL);
   compiler->emitConstant(NUMBER_VAL(value));
 }
 
-void grouping(Compiler* compiler) {
+void grouping(Compiler* compiler, bool canAssign) {
   compiler->expression();
   compiler->consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-void unary(Compiler* compiler) {
+void unary(Compiler* compiler, bool canAssign) {
   auto type = compiler->parser.previous.type;
 
   compiler->parsePrecedence(Precedence::PREC_UNARY);
@@ -274,7 +277,7 @@ void unary(Compiler* compiler) {
   }
 }
 
-void binary(Compiler* compiler) {
+void binary(Compiler* compiler, bool canAssign) {
   TokenType type = compiler->parser.previous.type;
 
   auto rule = getRule(type);
@@ -316,7 +319,7 @@ void binary(Compiler* compiler) {
   }
 }
 
-void literal(Compiler* compiler) {
+void literal(Compiler* compiler, bool canAssign) {
   switch (compiler->parser.previous.type) {
     case TOKEN_TRUE:
       compiler->emitByte(OP_TRUE);
@@ -332,12 +335,12 @@ void literal(Compiler* compiler) {
   }
 }
 
-void string(Compiler* compiler) {
+void string(Compiler* compiler, bool canAssign) {
   compiler->emitConstant(OBJ_VAL(allocateStringObject(
       compiler->parser.previous.start + 1, compiler->parser.previous.length - 2,
       compiler->stringTable, compiler->objects)));
 }
 
-void variable(Compiler* compiler) {
-  compiler->namedVariable(compiler->parser.previous);
+void variable(Compiler* compiler, bool canAssign) {
+  compiler->namedVariable(compiler->parser.previous, canAssign);
 }

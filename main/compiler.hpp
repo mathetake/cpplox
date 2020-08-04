@@ -61,7 +61,7 @@ class Compiler {
   uint8_t parseVariable(const char* errorMessage);
   uint8_t identifierConstant(const Token* name);
   void defineVariable(uint8_t global);
-  void namedVariable(Token name);
+  void namedVariable(Token name, bool canAssign);
 
   void parsePrecedence(Precedence precedence);
   void expression();
@@ -76,7 +76,7 @@ class Compiler {
 };
 
 // parse rule table
-typedef void (*ParseFn)(Compiler*);
+typedef void (*ParseFn)(Compiler*, bool);
 
 class ParseRule {
  public:
@@ -89,11 +89,11 @@ class ParseRule {
 };
 void initializeParseRules();
 
-void number(Compiler* compiler);
-void grouping(Compiler* compiler);
-void unary(Compiler* compiler);
-void binary(Compiler* compiler);
-void literal(Compiler* compiler);
-void string(Compiler* compiler);
-void variable(Compiler* compiler);
+void number(Compiler* compiler, bool canAssign);
+void grouping(Compiler* compiler, bool canAssign);
+void unary(Compiler* compiler, bool canAssign);
+void binary(Compiler* compiler, bool canAssign);
+void literal(Compiler* compiler, bool canAssign);
+void string(Compiler* compiler, bool canAssign);
+void variable(Compiler* compiler, bool canAssign);
 #endif
