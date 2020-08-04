@@ -61,10 +61,76 @@ Compiler::Compiler(const char* source, Chunk* targetChunk) {
 
 bool Compiler::compile() {
   advance();
-  expression();
-  consume(TokenType::TOKEN_EOF, "Expect end of expression.");
+  while (!match(TokenType::TOKEN_EOF)) {
+    declaration();
+  }
+
   endCompiler();
   return !parser.hadError;
+}
+
+bool Compiler::match(TokenType type) {
+  if (!check(type)) return false;
+  advance();
+  return true;
+}
+
+bool Compiler::check(TokenType type) { return parser.current.type == type; }
+
+void Compiler::declaration() {
+  if (match(TOKEN_VAR)) {
+    varDeclaration();
+  } else {
+    statement();
+  }
+
+  if (parser.panicMode) synchronize();
+}
+
+void Compiler::statement() {
+  if (match(TOKEN_PRINT)) {
+    printStatement();
+  } else {
+    expressionStatement();
+  }
+}
+
+void Compiler::varDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    emitByte(OP_NIL);
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
+
+void Compiler::defineVariable(uint8_t global) {
+  emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
+uint8_t Compiler::parseVariable(const char* errorMessage) {
+  consume(TOKEN_IDENTIFIER, errorMessage);
+  return identifierConstant(&parser.previous);
+}
+
+uint8_t Compiler::identifierConstant(const Token* name) {
+  return makeConstant(OBJ_VAL(new ObjString(name->start, name->length)));
+}
+
+void Compiler::printStatement() {
+  expression();
+  consume(TOKEN_SEMICOLON, "Expect ';' after value.");
+  emitByte(OP_PRINT);
+}
+
+void Compiler::expressionStatement() {
+  expression();
+  consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
+  emitByte(OP_POP);
 }
 
 void Compiler::emitReturn() { emitByte(OptCode::OP_RETURN); };
@@ -113,6 +179,31 @@ void Compiler::errorAt(Token* token, const char* message) {
 
   fprintf(stderr, ": %s\n", message);
   parser.hadError = true;
+}
+void Compiler::synchronize() {
+  parser.panicMode = false;
+
+  while (parser.current.type != TOKEN_EOF) {
+    if (parser.previous.type == TOKEN_SEMICOLON) return;
+
+    switch (parser.current.type) {
+      case TOKEN_CLASS:
+      case TOKEN_FUN:
+      case TOKEN_VAR:
+      case TOKEN_FOR:
+      case TOKEN_IF:
+      case TOKEN_WHILE:
+      case TOKEN_PRINT:
+      case TOKEN_RETURN:
+        return;
+
+      default:
+          // Do nothing.
+          ;
+    }
+
+    advance();
+  }
 }
 
 void Compiler::emitByte(uint8_t byte) {

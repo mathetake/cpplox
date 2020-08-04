@@ -4,6 +4,20 @@
 
 #include "main/value.hpp"
 
+TEST(Compiler, check) {
+  auto compiler = Compiler("true", new Chunk);
+  compiler.advance();
+  ASSERT_TRUE(compiler.check(TokenType::TOKEN_TRUE));
+  ASSERT_FALSE(compiler.check(TokenType::TOKEN_FALSE));
+}
+
+TEST(Compiler, match) {
+  auto compiler = Compiler("1011", new Chunk);
+  compiler.advance();
+  ASSERT_TRUE(compiler.match(TokenType::TOKEN_NUMBER));
+  ASSERT_TRUE(compiler.match(TokenType::TOKEN_EOF));
+}
+
 TEST(Compiler, Constructor) {
   const char* src = "abcde";
   auto chunk = new Chunk;
@@ -72,6 +86,54 @@ TEST(Compiler, emitConstant) {
   EXPECT_EQ(compiler.chunk->code[0], OptCode::OP_CONSTANT);
   EXPECT_EQ(compiler.chunk->code[1], 0);
   EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, value.number);
+}
+
+TEST(Compiler, expressionStatement) {
+  auto compiler = Compiler("1.1;", new Chunk);
+  compiler.advance();
+  compiler.expressionStatement();
+  ASSERT_EQ(compiler.chunk->constants.values.size(), 1);
+  EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, 1.1);
+  ASSERT_EQ(compiler.chunk->code.size(), 3);
+  EXPECT_EQ(compiler.chunk->code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler.chunk->code[1], 0);
+  EXPECT_EQ(compiler.chunk->code[2], OptCode::OP_POP);
+}
+
+TEST(Compiler, printStatement) {
+  auto compiler = Compiler("1.1;", new Chunk);
+  compiler.advance();
+  compiler.printStatement();
+  ASSERT_EQ(compiler.chunk->constants.values.size(), 1);
+  EXPECT_DOUBLE_EQ(compiler.chunk->constants.peek()->number, 1.1);
+  ASSERT_EQ(compiler.chunk->code.size(), 3);
+  EXPECT_EQ(compiler.chunk->code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler.chunk->code[1], 0);
+  EXPECT_EQ(compiler.chunk->code[2], OptCode::OP_PRINT);
+}
+
+TEST(Compiler, defineVariable) {
+  auto compiler = Compiler("", new Chunk);
+  compiler.defineVariable(233);
+  ASSERT_EQ(compiler.chunk->code.size(), 2);
+  ASSERT_EQ(compiler.chunk->code[0], OptCode::OP_DEFINE_GLOBAL);
+  ASSERT_EQ(compiler.chunk->code[1], 233);
+}
+
+TEST(Compiler, parseVariable) {
+  auto compiler = Compiler("abcd", new Chunk);
+  compiler.advance();
+  compiler.parseVariable("aaa");
+  ASSERT_EQ(compiler.chunk->constants.values.size(), 1);
+  ASSERT_EQ(((ObjString*)(compiler.chunk->constants.peek()->obj))->str, "abcd");
+}
+
+TEST(Compiler, identifierConstant) {
+  auto compiler = Compiler("abcd", new Chunk);
+  Token token = compiler.scanner.scanToken();
+  compiler.identifierConstant(&token);
+  ASSERT_EQ(compiler.chunk->constants.values.size(), 1);
+  ASSERT_EQ(((ObjString*)(compiler.chunk->constants.peek()->obj))->str, "abcd");
 }
 
 TEST(Compiler, makeConstant) {

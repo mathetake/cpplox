@@ -46,6 +46,18 @@ class Compiler {
   void emitConstant(Value value);
   uint8_t makeConstant(Value value);
 
+  bool match(TokenType type);
+  bool check(TokenType type);
+
+  void statement();
+  void declaration();
+  void printStatement();
+  void expressionStatement();
+  void varDeclaration();
+  uint8_t parseVariable(const char* errorMessage);
+  uint8_t identifierConstant(const Token* name);
+  void defineVariable(uint8_t global);
+
   void parsePrecedence(Precedence precedence);
   void expression();
 
@@ -55,6 +67,7 @@ class Compiler {
   void errorAtCurrent(const char* message) {
     errorAt(&parser.current, message);
   }
+  void synchronize();
 };
 
 // parse rule table

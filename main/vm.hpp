@@ -21,6 +21,7 @@ class VM {
   Value* stack_top;
   Obj* objects;
   Table strings;
+  Table globals;
 
   VM();
   ~VM();

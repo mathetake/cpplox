@@ -16,6 +16,23 @@ TEST(VM, interpret) {
   for (int v = begin; v < end; ++v, ++vm_local.ip) EXPECT_EQ(*vm_local.ip, v);
 }
 
+TEST(VM, OP_DEFINE_GLOBAL) {
+  auto variable = new ObjString("variable name");
+  auto c = new Chunk;
+  c->write_chunk(OptCode::OP_DEFINE_GLOBAL, 123);
+  c->write_chunk(c->add_const(OBJ_VAL(variable)), 123);
+  c->write_chunk(OptCode::OP_RETURN, 123);
+  VM vm_local{};
+  vm_local.interpret(c);
+  vm_local.push(NUMBER_VAL(1.2));
+  vm_local.run();
+
+  ASSERT_EQ(vm_local.globals.count, 1);
+  Value actual;
+  ASSERT_TRUE(vm_local.globals.get(variable, &actual));
+  EXPECT_DOUBLE_EQ(actual.number, 1.2);
+}
+
 TEST(VM, run_arithmetic) {
   auto c = new Chunk;
   int constant = c->add_const(NUMBER_VAL(1.2));

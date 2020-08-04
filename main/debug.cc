@@ -60,6 +60,12 @@ int disassembleInstruction(Chunk* chunk, int offset) {
       return simpleInstruction("OP_GREATER", offset);
     case OptCode::OP_LESS:
       return simpleInstruction("OP_LESS", offset);
+    case OptCode::OP_PRINT:
+      return simpleInstruction("OP_PRINT", offset);
+    case OptCode::OP_POP:
+      return simpleInstruction("OP_POP", offset);
+    case OptCode::OP_DEFINE_GLOBAL:
+      return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
     default:
       printf("unknown optcode: %d\n", inst);
       return offset + 1;

@@ -58,6 +58,7 @@ void VM::runtimeError(const char* format, ...) {
 IntepretResult VM::run() {
 #define READ_BYTE() (*ip++)
 #define READ_CONSTANT() (chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, OP)                      \
   do {                                                \
     if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
@@ -129,9 +130,6 @@ IntepretResult VM::run() {
         BINARY_OP(NUMBER_VAL, /);
         break;
       }
-      case OP_RETURN: {
-        return IntepretResult::INTERPRET_OK;
-      }
       case OP_NIL:
         push(NIL_VAL);
         break;
@@ -140,6 +138,13 @@ IntepretResult VM::run() {
         break;
       case OP_FALSE:
         push(BOOL_VAL(false));
+        break;
+      case OP_PRINT:
+        printValue(pop());
+        printf("\n");
+        break;
+      case OP_POP:
+        pop();
         break;
       default: {
         return IntepretResult::INTERPRET_RUNTIME_ERROR;
@@ -150,9 +155,19 @@ IntepretResult VM::run() {
         push(BOOL_VAL(valuesEqual(a, b)));
         break;
       }
+      case OP_DEFINE_GLOBAL: {
+        ObjString* name = READ_STRING();
+        globals.set(name, peek(0));
+        pop();
+        break;
+      }
+      case OP_RETURN: {
+        return IntepretResult::INTERPRET_OK;
+      }
     }
   }
 #undef BINARY_OP
+#undef READ_STRING
 #undef READ_CONSTANT
 #undef READ_BYTE
 };
