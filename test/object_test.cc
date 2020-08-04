@@ -6,8 +6,7 @@
 
 TEST(Object, printObject) {
   const char* raw = "abcd";
-  auto actual = allocateStringObject(raw, 4);
-  printObject(OBJ_VAL(actual));
+  printObject(OBJ_VAL(new ObjString("aaaa")));
 }
 
 TEST(Object, isObjType) {
@@ -18,15 +17,21 @@ TEST(Object, isObjType) {
 }
 
 TEST(Object, allocateStringObject) {
-  const char* raw = "abcd";
-  auto actual = allocateStringObject(raw, 4);
-  EXPECT_EQ(actual->type, OBJ_STRING);
-  EXPECT_EQ(actual->str.size(), 4);
-  EXPECT_EQ(actual->str, "abcd");
+  auto strings = new Table{};
+  Obj* objs = new Obj{};
+  auto first = allocateStringObject("abcd", 4, strings, &objs);
+  EXPECT_EQ(first->type, OBJ_STRING);
+  EXPECT_EQ(first->str.size(), 4);
+  EXPECT_EQ(first->str, "abcd");
 
-  EXPECT_EQ(vm.objects, (Obj*)actual);
-  EXPECT_EQ(vm.strings.count, 2);
-  EXPECT_EQ(vm.strings.findString(new ObjString("abcd")), actual);
+  EXPECT_EQ(objs, (Obj*)first);
+  EXPECT_EQ(strings->count, 1);
+  EXPECT_EQ(strings->findString(new ObjString("abcd")), first);
+
+  auto second = allocateStringObject("efgh", 4, strings, &objs);
+  EXPECT_EQ(strings->findString(new ObjString("efgh")), second);
+  ASSERT_EQ(objs, (Obj*)second);
+  ASSERT_EQ(second->next, first);
 }
 
 TEST(Object, hashString) {

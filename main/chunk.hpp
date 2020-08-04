@@ -17,6 +17,7 @@ enum OptCode : uint8_t {
   OP_TRUE,
   OP_FALSE,
   OP_EQUAL,
+  OP_GET_GLOBAL,
   OP_GREATER,
   OP_LESS,
   OP_PRINT,

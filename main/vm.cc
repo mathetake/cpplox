@@ -161,6 +161,16 @@ IntepretResult VM::run() {
         pop();
         break;
       }
+      case OP_GET_GLOBAL: {
+        ObjString* name = READ_STRING();
+        Value value;
+        if (!globals.get(name, &value)) {
+          runtimeError("Undefined variable '%s'.", name->str.c_str());
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        push(value);
+        break;
+      }
       case OP_RETURN: {
         return IntepretResult::INTERPRET_OK;
       }
@@ -182,7 +192,7 @@ IntepretResult VM::interpret(const char* source) {
   std::cout << source << "\n";
 
   auto chunk = Chunk{};
-  auto compiler = Compiler(source, &chunk);
+  auto compiler = Compiler(source, &chunk, &strings, &objects);
   if (!compiler.compile()) {
     return IntepretResult::INTERPRET_COMPILE_ERROR;
   }

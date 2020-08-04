@@ -162,8 +162,8 @@ TEST(VM, isFalsy) {
 TEST(VM, concatenate) {
   VM vm_local{};
   vm_local.initVM();
-  vm_local.push(OBJ_VAL(allocateStringObject("ab", 2)));
-  vm_local.push(OBJ_VAL(allocateStringObject("cd", 2)));
+  vm_local.push(OBJ_VAL(new ObjString("ab")));
+  vm_local.push(OBJ_VAL(new ObjString("cd")));
   auto a = std::string("aaa", 1);
   EXPECT_EQ(a.size(), 1);
 

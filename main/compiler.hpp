@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "object.hpp"
 #include "scanner.hpp"
+#include "table.hpp"
 
 enum Precedence {
   PREC_NONE,
@@ -32,7 +33,10 @@ class Compiler {
   Scanner scanner;
   Parser parser;
   Chunk* chunk;
-  Compiler(const char* source, Chunk* targetChunk);
+  Table* stringTable;
+  Obj** objects;
+
+  Compiler(const char* source, Chunk* targetChunk, Table* strTable, Obj** obs);
 
   bool compile();
   void advance();
@@ -57,6 +61,7 @@ class Compiler {
   uint8_t parseVariable(const char* errorMessage);
   uint8_t identifierConstant(const Token* name);
   void defineVariable(uint8_t global);
+  void namedVariable(Token name);
 
   void parsePrecedence(Precedence precedence);
   void expression();
@@ -90,4 +95,5 @@ void unary(Compiler* compiler);
 void binary(Compiler* compiler);
 void literal(Compiler* compiler);
 void string(Compiler* compiler);
+void variable(Compiler* compiler);
 #endif

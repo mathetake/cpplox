@@ -1,6 +1,4 @@
-
-
-#ifndef cpplox_table_
+#ifndef cpplox_table_h
 #define cpplox_table_h
 
 #include "common.hpp"
@@ -26,7 +24,7 @@ class Table {
   };
 
   void initializeEntries() {
-    for (auto i = 0; i < entries->capacity(); i++) {
+    for (size_t i = 0; i < entries->capacity(); i++) {
       (*entries)[i].key = NULL;
       (*entries)[i].value = NIL_VAL;
     }

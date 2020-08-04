@@ -28,7 +28,7 @@ void initializeParseRules() {
   parseRules[TOKEN_GREATER_EQUAL] = ParseRule{NULL, binary, PREC_COMPARISON};
   parseRules[TOKEN_LESS] = ParseRule{NULL, binary, PREC_COMPARISON};
   parseRules[TOKEN_LESS_EQUAL] = ParseRule{NULL, binary, PREC_COMPARISON};
-  parseRules[TOKEN_IDENTIFIER] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_IDENTIFIER] = ParseRule{variable, NULL, PREC_NONE};
   parseRules[TOKEN_STRING] = ParseRule{string, NULL, PREC_NONE};
   parseRules[TOKEN_NUMBER] = ParseRule{number, NULL, PREC_NONE};
   parseRules[TOKEN_AND] = ParseRule{NULL, NULL, PREC_NONE};
@@ -51,10 +51,13 @@ void initializeParseRules() {
   parseRules[TOKEN_EOF] = ParseRule{NULL, NULL, PREC_NONE};
 }
 
-Compiler::Compiler(const char* source, Chunk* targetChunk) {
+Compiler::Compiler(const char* source, Chunk* targetChunk, Table* strTable,
+                   Obj** obs) {
   scanner = Scanner(source);
   parser = Parser{};
   chunk = targetChunk;
+  objects = obs;
+  stringTable = strTable;
 
   initializeParseRules();
 }
@@ -111,6 +114,10 @@ void Compiler::varDeclaration() {
 void Compiler::defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
+void Compiler::namedVariable(Token name) {
+  uint8_t arg = identifierConstant(&name);
+  emitBytes(OP_GET_GLOBAL, arg);
+}
 
 uint8_t Compiler::parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
@@ -118,7 +125,8 @@ uint8_t Compiler::parseVariable(const char* errorMessage) {
 }
 
 uint8_t Compiler::identifierConstant(const Token* name) {
-  return makeConstant(OBJ_VAL(new ObjString(name->start, name->length)));
+  return makeConstant(OBJ_VAL(
+      allocateStringObject(name->start, name->length, stringTable, objects)));
 }
 
 void Compiler::printStatement() {
@@ -325,7 +333,11 @@ void literal(Compiler* compiler) {
 }
 
 void string(Compiler* compiler) {
-  compiler->emitConstant(
-      OBJ_VAL(allocateStringObject(compiler->parser.previous.start + 1,
-                                   compiler->parser.previous.length - 2)));
+  compiler->emitConstant(OBJ_VAL(allocateStringObject(
+      compiler->parser.previous.start + 1, compiler->parser.previous.length - 2,
+      compiler->stringTable, compiler->objects)));
+}
+
+void variable(Compiler* compiler) {
+  compiler->namedVariable(compiler->parser.previous);
 }

@@ -2,6 +2,7 @@
 #define cpplox_object_h
 
 #include "common.hpp"
+#include "table.hpp"
 #include "value.hpp"
 
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
@@ -10,6 +11,8 @@
 
 #define AS_STRING(value) ((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->str.c_str())
+
+class Table;
 
 enum ObjType {
   OBJ_STRING,
@@ -32,7 +35,8 @@ class ObjString : public Obj {
 
 bool isObjType(Value value, ObjType type);
 
-ObjString* allocateStringObject(const char* chars, int length);
+ObjString* allocateStringObject(const char* chars, int length,
+                                Table* stringTable, Obj** objects);
 
 void printObject(Value value);
 

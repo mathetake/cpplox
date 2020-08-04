@@ -31,6 +31,7 @@ bool Table::deleteKey(ObjString* key) {
 
   entry->key = NULL;
   entry->value = BOOL_VAL(true);
+  return true;
 }
 
 Entry* findEntry(std::vector<Entry>* entries, ObjString* key) {
@@ -81,7 +82,7 @@ void Table::adjustCapacity(int cap) {
   initializeEntries();
 
   count = 0;
-  for (auto i = 0; i < old->capacity(); i++) {
+  for (size_t i = 0; i < old->capacity(); i++) {
     Entry* src = &((*old)[i]);
     if (src->key == NULL) continue;
 
@@ -95,7 +96,7 @@ void Table::adjustCapacity(int cap) {
 };
 
 void Table::addAll(Table* src) {
-  for (auto i = 0; i < src->entries->capacity(); i++) {
+  for (size_t i = 0; i < src->entries->capacity(); i++) {
     Entry* entry = &(*src->entries)[i];
     if (entry->key != NULL) {
       set(entry->key, entry->value);

@@ -20,12 +20,14 @@ bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 };
 
-ObjString* allocateStringObject(const char* chars, int length) {
+ObjString* allocateStringObject(const char* chars, int length,
+                                Table* stringTable, Obj** objects) {
   auto string = new ObjString(chars, length);
-  if (auto found = vm.strings.findString(string); found != nullptr)
+  if (auto found = stringTable->findString(string); found != nullptr)
     return found;
-  vm.objects = string;
-  vm.strings.set(string, NIL_VAL);
+  string->next = *objects;
+  *objects = string;
+  stringTable->set(string, NIL_VAL);
   return string;
 };
 
