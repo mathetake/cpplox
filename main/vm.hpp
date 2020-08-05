@@ -37,7 +37,7 @@ class VM {
   void push(Value value);
   Value pop();
   Value peek(int distance);
-  static bool isFalsy(Value value);
+  static bool isFalsey(Value value);
 
   void concatenate();
   void runtimeError(const char* format, ...);

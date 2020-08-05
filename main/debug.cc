@@ -15,6 +15,13 @@ int simpleInstruction(const char* name, int offset) {
   return offset + 1;
 }
 
+int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset) {
+  uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
+  jump |= chunk->code[offset + 2];
+  printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+  return offset + 3;
+}
+
 int constantInstruction(const char* name, Chunk* chunk, int offset) {
   auto index = chunk->code[offset + 1];
   printf("%-16s %4d '", name, index);
@@ -80,6 +87,10 @@ int disassembleInstruction(Chunk* chunk, int offset) {
       return byteInstruction("OP_GET_LOCAL", chunk, offset);
     case OptCode::OP_SET_LOCAL:
       return byteInstruction("OP_SET_LOCAL", chunk, offset);
+    case OptCode::OP_JUMP:
+      return jumpInstruction("OP_JUMP", 1, chunk, offset);
+    case OptCode::OP_JUMP_IF_FALSE:
+      return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
     default:
       printf("unknown optcode: %d\n", inst);
       return offset + 1;

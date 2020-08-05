@@ -166,11 +166,11 @@ TEST(VM, binary_op) {
 #undef run
 }
 
-TEST(VM, isFalsy) {
-  EXPECT_FALSE(VM::isFalsy(NUMBER_VAL(1.1)));
-  EXPECT_TRUE(VM::isFalsy(NIL_VAL));
-  EXPECT_TRUE(VM::isFalsy(BOOL_VAL(false)));
-  EXPECT_FALSE(VM::isFalsy(BOOL_VAL(true)));
+TEST(VM, isFalsey) {
+  EXPECT_FALSE(VM::isFalsey(NUMBER_VAL(1.1)));
+  EXPECT_TRUE(VM::isFalsey(NIL_VAL));
+  EXPECT_TRUE(VM::isFalsey(BOOL_VAL(false)));
+  EXPECT_FALSE(VM::isFalsey(BOOL_VAL(true)));
 }
 
 TEST(VM, concatenate) {

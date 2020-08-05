@@ -453,3 +453,56 @@ TEST(Compiler, resolveLocal) {
 
   ASSERT_EQ(compiler->resolveLocal(&compiler->parser.current), 1);
 }
+
+TEST(Compiler, emitJump) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("", new Chunk, new Table{}, &obj);
+  ASSERT_EQ(compiler->emitJump(OptCode::OP_JUMP_IF_FALSE), 1);
+  ASSERT_EQ(compiler->chunk->code[0], OptCode::OP_JUMP_IF_FALSE);
+  ASSERT_EQ(compiler->chunk->code[1], 0xff);
+  ASSERT_EQ(compiler->chunk->code[2], 0xff);
+}
+
+TEST(Compiler, patchJump) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("", new Chunk, new Table{}, &obj);
+
+  compiler->chunk->code.push_back(OptCode::OP_JUMP_IF_FALSE);
+  compiler->chunk->code.push_back(0xf1);
+  compiler->chunk->code.push_back(0xf2);
+  compiler->chunk->code.push_back(0x03);
+  ASSERT_EQ(compiler->chunk->count(), 4);
+  compiler->patchJump(1);
+  ASSERT_EQ(compiler->chunk->code[1], 0x00);
+  ASSERT_EQ(compiler->chunk->code[2], 0x01);
+}
+
+TEST(Compiler, andOp) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("true", new Chunk, new Table{}, &obj);
+  compiler->advance();  // curren on true
+  andOp(compiler, false);
+
+  ASSERT_EQ(compiler->chunk->code.size(), 5);
+  EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_JUMP_IF_FALSE);
+  EXPECT_EQ(compiler->chunk->code[1], 0x00);
+  EXPECT_EQ(compiler->chunk->code[2], 0x02);
+  EXPECT_EQ(compiler->chunk->code[3], OptCode::OP_POP);
+  EXPECT_EQ(compiler->chunk->code[4], OptCode::OP_TRUE);
+}
+
+TEST(Compiler, orOp) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("true", new Chunk, new Table{}, &obj);
+  compiler->advance();  // curren on true
+  orOp(compiler, false);
+  ASSERT_EQ(compiler->chunk->code.size(), 8);
+  EXPECT_EQ(compiler->chunk->code[0], OptCode::OP_JUMP_IF_FALSE);
+  EXPECT_EQ(compiler->chunk->code[1], 0x00);
+  EXPECT_EQ(compiler->chunk->code[2], 0x03);
+  EXPECT_EQ(compiler->chunk->code[3], OptCode::OP_JUMP);
+  EXPECT_EQ(compiler->chunk->code[4], 0x00);
+  EXPECT_EQ(compiler->chunk->code[5], 0x02);
+  EXPECT_EQ(compiler->chunk->code[6], OptCode::OP_POP);
+  EXPECT_EQ(compiler->chunk->code[7], OptCode::OP_TRUE);
+}

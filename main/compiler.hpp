@@ -65,6 +65,7 @@ class Compiler {
 
   void statement();
   void declaration();
+  void ifStatement();
   void block();
   void printStatement();
   void expressionStatement();
@@ -83,6 +84,9 @@ class Compiler {
   void addLocal(Token name);
   void markInitialized();
   int resolveLocal(Token* name);
+
+  int emitJump(uint8_t instruction);
+  void patchJump(int offset);
 
   // errors
   void errorAt(Token* token, const char* message);
@@ -114,4 +118,6 @@ void binary(Compiler* compiler, bool canAssign);
 void literal(Compiler* compiler, bool canAssign);
 void string(Compiler* compiler, bool canAssign);
 void variable(Compiler* compiler, bool canAssign);
+void andOp(Compiler* compiler, bool canAssign);
+void orOp(Compiler* compiler, bool canAssign);
 #endif

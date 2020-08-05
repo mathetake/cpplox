@@ -31,7 +31,7 @@ void initializeParseRules() {
   parseRules[TOKEN_IDENTIFIER] = ParseRule{variable, NULL, PREC_NONE};
   parseRules[TOKEN_STRING] = ParseRule{string, NULL, PREC_NONE};
   parseRules[TOKEN_NUMBER] = ParseRule{number, NULL, PREC_NONE};
-  parseRules[TOKEN_AND] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_AND] = ParseRule{NULL, andOp, PREC_AND};
   parseRules[TOKEN_CLASS] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_ELSE] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_FALSE] = ParseRule{literal, NULL, PREC_NONE};
@@ -39,7 +39,7 @@ void initializeParseRules() {
   parseRules[TOKEN_FUN] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_IF] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_NIL] = ParseRule{literal, NULL, PREC_NONE};
-  parseRules[TOKEN_OR] = ParseRule{NULL, NULL, PREC_NONE};
+  parseRules[TOKEN_OR] = ParseRule{NULL, orOp, PREC_OR};
   parseRules[TOKEN_PRINT] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_RETURN] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_SUPER] = ParseRule{NULL, NULL, PREC_NONE};
@@ -95,6 +95,8 @@ void Compiler::declaration() {
 void Compiler::statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_IF)) {
+    ifStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {
     beginScope();
     block();
@@ -102,6 +104,41 @@ void Compiler::statement() {
   } else {
     expressionStatement();
   }
+}
+
+void Compiler::ifStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+  int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  emitByte(OP_POP);
+  statement();
+
+  int elseJump = emitJump(OP_JUMP);
+
+  patchJump(thenJump);
+  emitByte(OP_POP);
+
+  if (match(TOKEN_ELSE)) statement();
+  patchJump(elseJump);
+}
+
+int Compiler::emitJump(uint8_t instruction) {
+  emitByte(instruction);
+  emitByte(0xff);
+  emitByte(0xff);
+  return chunk->count() - 2;
+}
+
+void Compiler::patchJump(int offset) {
+  int jump = chunk->count() - offset - 2;
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+
+  chunk->code[offset] = (jump >> 8) & 0xff;
+  chunk->code[offset + 1] = jump & 0xff;
 }
 
 void Compiler::block() {
@@ -424,4 +461,24 @@ void string(Compiler* compiler, bool canAssign) {
 
 void variable(Compiler* compiler, bool canAssign) {
   compiler->namedVariable(compiler->parser.previous, canAssign);
+}
+
+void andOp(Compiler* compiler, bool canAssign) {
+  int endJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+
+  compiler->emitByte(OP_POP);
+  compiler->parsePrecedence(PREC_AND);
+
+  compiler->patchJump(endJump);
+}
+
+void orOp(Compiler* compiler, bool canAssign) {
+  int elseJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+  int endJump = compiler->emitJump(OP_JUMP);
+
+  compiler->patchJump(elseJump);
+  compiler->emitByte(OP_POP);
+
+  compiler->parsePrecedence(PREC_OR);
+  compiler->patchJump(endJump);
 }
