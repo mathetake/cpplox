@@ -66,6 +66,8 @@ class Compiler {
   void statement();
   void declaration();
   void ifStatement();
+  void whileStatement();
+  void forStatement();
   void block();
   void printStatement();
   void expressionStatement();
@@ -87,6 +89,7 @@ class Compiler {
 
   int emitJump(uint8_t instruction);
   void patchJump(int offset);
+  void emitLoop(int loopStart);
 
   // errors
   void errorAt(Token* token, const char* message);

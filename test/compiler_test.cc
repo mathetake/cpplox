@@ -506,3 +506,13 @@ TEST(Compiler, orOp) {
   EXPECT_EQ(compiler->chunk->code[6], OptCode::OP_POP);
   EXPECT_EQ(compiler->chunk->code[7], OptCode::OP_TRUE);
 }
+
+TEST(Compiler, emitLoop) {
+  auto obj = new Obj{};
+  auto compiler = new Compiler("", new Chunk, new Table{}, &obj);
+  for (auto i = 0; i < 10; i++) compiler->emitByte(0x01);
+  compiler->emitLoop(0);
+  ASSERT_EQ(compiler->chunk->code[10], OptCode::OP_LOOP);
+  ASSERT_EQ(compiler->chunk->code[11], 0x00);
+  ASSERT_EQ(compiler->chunk->code[12], 0x0d);
+}
