@@ -51,27 +51,32 @@ void initializeParseRules() {
   parseRules[TOKEN_EOF] = ParseRule{NULL, NULL, PREC_NONE};
 }
 
-Compiler::Compiler(const char* source, Chunk* targetChunk, Table* strTable,
-                   Obj** obs) {
-  scanner = Scanner(source);
-  parser = Parser{};
-  chunk = targetChunk;
-  objects = obs;
-  stringTable = strTable;
-  localCount = 0;
-  scopeDepth = 0;
-
+Compiler::Compiler(const char* source, FunctionType functionType,
+                   Table* stringTable, Obj** objects)
+    : scanner(Scanner(source)),
+      objects(objects),
+      stringTable(stringTable),
+      localCount(0),
+      scopeDepth(0),
+      functionType(functionType),
+      parser(Parser{}) {
   initializeParseRules();
+
+  function = new ObjFunction{};
+  Local* local = &locals[localCount++];
+  local->depth = 0;
+  local->name.start = "";
+  local->name.start = 0;
 }
 
-bool Compiler::compile() {
+ObjFunction* Compiler::compile() {
   advance();
   while (!match(TokenType::TOKEN_EOF)) {
     declaration();
   }
 
-  endCompiler();
-  return !parser.hadError;
+  ObjFunction* function = endCompiler();
+  return parser.hadError ? NULL : function;
 }
 
 bool Compiler::match(TokenType type) {
@@ -129,7 +134,7 @@ void Compiler::ifStatement() {
 }
 
 void Compiler::whileStatement() {
-  int loopStart = chunk->count();
+  int loopStart = function->chunk.count();
 
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
@@ -151,28 +156,26 @@ void Compiler::forStatement() {
 
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_SEMICOLON)) {
-    // No initializer.
   } else if (match(TOKEN_VAR)) {
     varDeclaration();
   } else {
     expressionStatement();
   }
 
-  int loopStart = chunk->count();
+  int loopStart = function->chunk.count();
   int exitJump = -1;
   if (!match(TOKEN_SEMICOLON)) {
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
 
-    // Jump out of the loop if the condition is false.
     exitJump = emitJump(OP_JUMP_IF_FALSE);
-    emitByte(OP_POP);  // Condition.
+    emitByte(OP_POP);
   }
 
   if (!match(TOKEN_RIGHT_PAREN)) {
     int bodyJump = emitJump(OP_JUMP);
 
-    int incrementStart = chunk->count();
+    int incrementStart = function->chunk.count();
     expression();
     emitByte(OP_POP);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
@@ -197,7 +200,7 @@ void Compiler::forStatement() {
 void Compiler::emitLoop(int loopStart) {
   emitByte(OP_LOOP);
 
-  int offset = chunk->count() - loopStart + 2;
+  int offset = function->chunk.count() - loopStart + 2;
   if (offset > UINT16_MAX) error("Loop body too large.");
 
   emitByte((offset >> 8) & 0xff);
@@ -208,17 +211,17 @@ int Compiler::emitJump(uint8_t instruction) {
   emitByte(instruction);
   emitByte(0xff);
   emitByte(0xff);
-  return chunk->count() - 2;
+  return function->chunk.count() - 2;
 }
 
 void Compiler::patchJump(int offset) {
-  int jump = chunk->count() - offset - 2;
+  int jump = function->chunk.count() - offset - 2;
   if (jump > UINT16_MAX) {
     error("Too much code to jump over.");
   }
 
-  chunk->code[offset] = (jump >> 8) & 0xff;
-  chunk->code[offset + 1] = jump & 0xff;
+  function->chunk.code[offset] = (jump >> 8) & 0xff;
+  function->chunk.code[offset + 1] = jump & 0xff;
 }
 
 void Compiler::block() {
@@ -346,13 +349,17 @@ void Compiler::expressionStatement() {
 
 void Compiler::emitReturn() { emitByte(OptCode::OP_RETURN); };
 
-void Compiler::endCompiler() {
+ObjFunction* Compiler::endCompiler() {
   emitReturn();
+  ObjFunction* ret = function;
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError) {
-    disassembleChunk(chunk, "code");
+    disassembleChunk(&function->chunk, function->name != nullptr
+                                           ? function->name->str.c_str()
+                                           : "script");
   }
 #endif
+  return ret;
 }
 
 void Compiler::advance() {
@@ -414,7 +421,7 @@ void Compiler::synchronize() {
 }
 
 void Compiler::emitByte(uint8_t byte) {
-  chunk->write_chunk(byte, parser.previous.line);
+  function->chunk.write_chunk(byte, parser.previous.line);
 }
 
 void Compiler::emitConstant(Value value) {
@@ -422,7 +429,7 @@ void Compiler::emitConstant(Value value) {
 }
 
 uint8_t Compiler::makeConstant(Value value) {
-  int constant = chunk->add_const(value);
+  int constant = function->chunk.add_const(value);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;

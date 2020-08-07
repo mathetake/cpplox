@@ -5,25 +5,28 @@
 #include "main/object.hpp"
 #include "main/value.hpp"
 
+#define CHUNK_AS_FUNC(c) new ObjFunction(c)
+#define CURRENT_FRAME(v) &v.frames[v.frameCount - 1];
+
 TEST(VM, interpret) {
-  auto c = new Chunk;
+  auto c = Chunk{};
   int begin = 10, end = 13;
-  for (int v = begin; v < end; ++v) c->write_chunk(v, 0);
+  for (int v = begin; v < end; ++v) c.write_chunk(v, 0);
 
   VM vm_local{};
-  vm_local.interpret(c);
-  EXPECT_EQ(vm_local.chunk, c);
-  for (int v = begin; v < end; ++v, ++vm_local.ip) EXPECT_EQ(*vm_local.ip, v);
+  vm_local.interpret(CHUNK_AS_FUNC(c));
+  auto frame = CURRENT_FRAME(vm_local);
+  for (int v = begin; v < end; ++v, ++frame->ip) EXPECT_EQ(*frame->ip, v);
 }
 
 TEST(VM, OP_DEFINE_GLOBAL) {
   auto variable = new ObjString("variable name");
-  auto c = new Chunk;
-  c->write_chunk(OptCode::OP_DEFINE_GLOBAL, 123);
-  c->write_chunk(c->add_const(OBJ_VAL(variable)), 123);
-  c->write_chunk(OptCode::OP_RETURN, 123);
+  auto c = Chunk{};
+  c.write_chunk(OptCode::OP_DEFINE_GLOBAL, 123);
+  c.write_chunk(c.add_const(OBJ_VAL(variable)), 123);
+  c.write_chunk(OptCode::OP_RETURN, 123);
   VM vm_local{};
-  vm_local.interpret(c);
+  vm_local.interpret(CHUNK_AS_FUNC(c));
   vm_local.push(NUMBER_VAL(1.2));
   vm_local.run();
 
@@ -35,14 +38,14 @@ TEST(VM, OP_DEFINE_GLOBAL) {
 
 TEST(VM, OP_GET_GLOBAL) {
   auto variable = new ObjString("variable name");
-  auto c = new Chunk;
-  c->write_chunk(OptCode::OP_GET_GLOBAL, 123);
-  c->write_chunk(c->add_const(OBJ_VAL(variable)), 123);
-  c->write_chunk(OptCode::OP_RETURN, 123);
+  auto c = Chunk{};
+  c.write_chunk(OptCode::OP_GET_GLOBAL, 123);
+  c.write_chunk(c.add_const(OBJ_VAL(variable)), 123);
+  c.write_chunk(OptCode::OP_RETURN, 123);
 
   VM vm_local{};
   vm_local.globals.set(variable, NUMBER_VAL(1.2));
-  vm_local.interpret(c);
+  vm_local.interpret(CHUNK_AS_FUNC(c));
   vm_local.run();
   EXPECT_DOUBLE_EQ(vm_local.peek(0).number, 1.2);
 }
@@ -69,8 +72,7 @@ TEST(VM, run_arithmetic) {
   c->write_chunk(OptCode::OP_RETURN, 123);
 
   VM vm_local{};
-  vm_local.interpret(c);
-  EXPECT_EQ(vm_local.chunk, c);
+  vm_local.interpret(CHUNK_AS_FUNC(*c));
   EXPECT_EQ(vm_local.run(), IntepretResult::INTERPRET_OK);
   EXPECT_DOUBLE_EQ((vm_local.stack_top - 1)->number, -0.575);  // -(1.2+3.4)/5.6
 }
@@ -112,17 +114,17 @@ TEST(VM, pop) {
 }
 
 TEST(VM, binary_op) {
-  VM vm_local{};
-  Chunk* c;
-
-#define run(OP_CODE, v1, v2)     \
-  vm_local.initVM();             \
-  vm_local.push(NUMBER_VAL(v1)); \
-  vm_local.push(NUMBER_VAL(v2)); \
-  c = new Chunk;                 \
-  c->write_chunk(OP_CODE, 123);  \
-  vm_local.interpret(c);         \
-  vm_local.run();
+  VM vm_local;
+#define run(OP_CODE, v1, v2)              \
+  {                                       \
+    vm_local.initVM();                    \
+    vm_local.push(NUMBER_VAL(v1));        \
+    vm_local.push(NUMBER_VAL(v2));        \
+    auto c = Chunk{};                     \
+    c.write_chunk(OP_CODE, 123);          \
+    vm_local.interpret(CHUNK_AS_FUNC(c)); \
+    vm_local.run();                       \
+  }
 
   // add
   run(OptCode::OP_ADD, 10, 100);

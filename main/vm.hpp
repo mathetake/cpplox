@@ -2,10 +2,12 @@
 #define cpplox_vm_h
 
 #include "chunk.hpp"
+#include "object.hpp"
 #include "table.hpp"
 #include "value.hpp"
 
-#define STACK_MAX 256
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
 enum IntepretResult {
   INTERPRET_OK,
@@ -13,22 +15,29 @@ enum IntepretResult {
   INTERPRET_RUNTIME_ERROR,
 };
 
+struct CallFrame {
+  ObjFunction* function;
+  uint8_t* ip;
+  Value* slots;
+};
+
 class VM {
  public:
-  Chunk* chunk;
-  uint8_t* ip;
   Value stack[STACK_MAX];
   Value* stack_top;
   Obj* objects;
   Table strings;
   Table globals;
 
+  CallFrame frames[FRAMES_MAX];
+  int frameCount;
+
   VM();
   ~VM();
 
   // set chunk
   IntepretResult run();
-  IntepretResult interpret(Chunk* chunk);
+  IntepretResult interpret(ObjFunction* function);
   IntepretResult interpret(const char* source);
   void initVM();
   void freeVM();

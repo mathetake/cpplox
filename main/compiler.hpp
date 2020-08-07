@@ -6,6 +6,11 @@
 #include "scanner.hpp"
 #include "table.hpp"
 
+enum FunctionType {
+  TYPE_FUNCTION,
+  TYPE_SCRIPT,
+};
+
 enum Precedence {
   PREC_NONE,
   PREC_ASSIGNMENT,  // =
@@ -38,24 +43,30 @@ class Compiler {
  public:
   Scanner scanner;
   Parser parser;
-  Chunk* chunk;
   Table* stringTable;
   Obj** objects;
+
+  FunctionType functionType;
+  ObjFunction* function;
 
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
 
-  Compiler(const char* source, Chunk* targetChunk, Table* strTable, Obj** obs);
+  Compiler(const char* source, FunctionType functionType, Table* stringTable,
+           Obj** objects);
 
-  bool compile();
+  Compiler(const char* source, Table* stringTable, Obj** objects)
+      : Compiler(source, FunctionType::TYPE_SCRIPT, stringTable, objects){};
+
+  ObjFunction* compile();
   void advance();
   void consume(TokenType type, const char* message);
   void emitByte(uint8_t byte);
   void emitBytes(uint8_t byte1, uint8_t byte2) {
     emitByte(byte1), emitByte(byte2);
   };
-  void endCompiler();
+  ObjFunction* endCompiler();
   void emitReturn();
   void emitConstant(Value value);
   uint8_t makeConstant(Value value);

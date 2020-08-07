@@ -9,8 +9,7 @@ ObjString::ObjString(const char* chars, int length) {
   hash = hashString(chars, length);
 }
 
-ObjString::ObjString(std::string s) {
-  str = s;
+ObjString::ObjString(std::string s) : str(s) {
   type = ObjType::OBJ_STRING;
   next = nullptr;
   hash = hashString(s.c_str(), s.size());
@@ -23,16 +22,26 @@ bool isObjType(Value value, ObjType type) {
 ObjString* allocateStringObject(const char* chars, int length,
                                 Table* stringTable, Obj** objects) {
   auto string = new ObjString(chars, length);
-  if (auto found = stringTable->findString(string); found != nullptr)
-    return found;
+  auto found = stringTable->findString(string);
+  if (found != nullptr) return found;
   string->next = *objects;
   *objects = string;
   stringTable->set(string, NIL_VAL);
   return string;
 };
 
+void printFunction(ObjFunction* function) {
+  if (function->name == NULL) {
+    printf("<script>");
+    return;
+  }
+  printf("<fn %s>", function->name->str.c_str());
+}
+
 void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
+    case OBJ_FUNCTION:
+      printFunction(AS_FUNCTION(value));
     case OBJ_STRING:
       printf("%s", AS_CSTRING(value));
       break;
