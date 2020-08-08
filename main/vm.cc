@@ -216,6 +216,13 @@ IntepretResult VM::run() {
         frame->ip -= offset;
         break;
       }
+      case OP_CALL: {
+        int argCount = READ_BYTE();
+        if (!callValue(peek(argCount), argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame = &vm.frames[vm.frameCount - 1];  // switch to new function frame
+      }
     }
   }
 #undef BINARY_OP
@@ -226,10 +233,7 @@ IntepretResult VM::run() {
 };
 
 IntepretResult VM::interpret(ObjFunction* function) {
-  CallFrame* frame = &frames[frameCount++];
-  frame->function = function;
-  frame->ip = &function->chunk.code.front();
-  frame->slots = stack;
+  callValue(OBJ_VAL(function), 0);
   return IntepretResult::INTERPRET_OK;
 }
 
@@ -254,4 +258,27 @@ void VM::concatenate() {
   };
 
   push(OBJ_VAL(ret));
+};
+
+bool VM::callValue(Value callee, int argCount) {
+  if (IS_OBJ(callee)) {
+    switch (OBJ_TYPE(callee)) {
+      case OBJ_FUNCTION:
+        return call(AS_FUNCTION(callee), argCount);
+
+      default:
+        // Non-callable object type.
+        break;
+    }
+  }
+  runtimeError("Can only call functions and classes.");
+  return false;
+};
+
+bool VM::call(ObjFunction* function, int argCount) {
+  CallFrame* frame = &frames[frameCount++];
+  frame->function = function;
+  frame->ip = &function->chunk.code.front();
+  frame->slots = stack_top - argCount - 1;
+  return true;
 };

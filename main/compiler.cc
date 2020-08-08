@@ -9,7 +9,7 @@ ParseRule parseRules[TokenType::TOKEN_TYPE_NUMS];
 ParseRule* getRule(TokenType type) { return &parseRules[type]; };
 
 void initializeParseRules() {
-  parseRules[TOKEN_LEFT_PAREN] = ParseRule{grouping, NULL, PREC_NONE};
+  parseRules[TOKEN_LEFT_PAREN] = ParseRule{grouping, call, PREC_CALL};
   parseRules[TOKEN_RIGHT_PAREN] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_LEFT_BRACE] = ParseRule{NULL, NULL, PREC_NONE};
   parseRules[TOKEN_RIGHT_BRACE] = ParseRule{NULL, NULL, PREC_NONE};
@@ -631,4 +631,25 @@ void orOp(Compiler* compiler, bool canAssign) {
 
   compiler->parsePrecedence(PREC_OR);
   compiler->patchJump(endJump);
+}
+
+void call(Compiler* compiler, bool canAssign) {
+  uint8_t argCount = compiler->argumentList();
+  compiler->emitBytes(OP_CALL, argCount);
+}
+
+uint8_t Compiler::argumentList() {
+  uint8_t argCount = 0;
+  if (!check(TOKEN_RIGHT_PAREN)) {
+    do {
+      expression();
+      if (argCount == 255) {
+        error("Cannot have more than 255 arguments.");
+      }
+      argCount++;
+    } while (match(TOKEN_COMMA));
+  }
+
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+  return argCount;
 }

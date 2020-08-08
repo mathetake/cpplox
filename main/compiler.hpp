@@ -90,6 +90,7 @@ class Compiler {
   void functionDeclaration();
   void declareVariable();
   void compileFunction(FunctionType type);
+  uint8_t argumentList();
   uint8_t parseVariable(const char* errorMessage);
   uint8_t identifierConstant(const Token* name);
   void defineVariable(uint8_t global);
@@ -140,4 +141,5 @@ void string(Compiler* compiler, bool canAssign);
 void variable(Compiler* compiler, bool canAssign);
 void andOp(Compiler* compiler, bool canAssign);
 void orOp(Compiler* compiler, bool canAssign);
+void call(Compiler* compiler, bool canAssign);
 #endif

@@ -192,7 +192,7 @@ TEST(Compiler, binary) {
   {                                                                            \
     auto compiler = NEW_COMPILER("1" #op "2");                                 \
     compiler->advance();                                                       \
-    binary(compiler, false);                                                   \
+    compiler->expression();                                                    \
     EXPECT_EQ(compiler->function->chunk.constants.values.size(), 2);           \
     EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.values[0].number, 1); \
     EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.values[1].number, 2); \
@@ -511,4 +511,26 @@ TEST(Compiler, compileFunction) {
   ASSERT_EQ(function->chunk.code[1], 0);
   ASSERT_EQ(function->chunk.constants.values.size(), 1);
   ASSERT_EQ(function->chunk.constants.values[0].number, 100);
+}
+
+TEST(Compiler, argumentList) {
+#define run(code, exp)                        \
+  {                                           \
+    auto compiler = NEW_COMPILER(code);       \
+    compiler->advance(), compiler->advance(); \
+    ASSERT_EQ(compiler->argumentList(), exp); \
+  }
+  run("()", 0);
+  run("(1)", 1);
+  run("(1,2,3)", 3);
+#undef run
+}
+
+TEST(Compiler, call) {
+  auto compiler = NEW_COMPILER("()");
+  compiler->advance(), compiler->advance();
+  call(compiler, false);
+  ASSERT_EQ(compiler->function->chunk.code.size(), 2);
+  ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_CALL);
+  ASSERT_EQ(compiler->function->chunk.code[1], 0);
 }

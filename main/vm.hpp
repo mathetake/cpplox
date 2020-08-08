@@ -48,6 +48,9 @@ class VM {
   Value peek(int distance);
   static bool isFalsey(Value value);
 
+  bool callValue(Value callee, int argCount);
+  bool call(ObjFunction* function, int argCount);
+
   void concatenate();
   void runtimeError(const char* format, ...);
 };
