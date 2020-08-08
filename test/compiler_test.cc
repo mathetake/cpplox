@@ -489,4 +489,26 @@ TEST(Compiler, emitLoop) {
   ASSERT_EQ(compiler->function->chunk.code[12], 0x0d);
 }
 
-TEST(Compiler, compileFunction) {}
+TEST(Compiler, compileFunction) {
+  auto compiler = NEW_COMPILER("name () { 100;}");
+  ASSERT_EQ(compiler->function->name->str, "");
+  compiler->advance(), compiler->advance();
+  compiler->compileFunction(FunctionType::TYPE_FUNCTION);
+  ASSERT_EQ(compiler->function->chunk.code.size(), 2);
+
+  ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_CONSTANT);
+  ASSERT_EQ(compiler->function->chunk.code[1], 0);
+
+  ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  auto value = compiler->function->chunk.constants.values[0];
+  ASSERT_TRUE(IS_OBJ(value));
+  ObjFunction* function = AS_FUNCTION(value);
+  ASSERT_TRUE(function);
+
+  ASSERT_EQ(function->name->str, "name");
+  ASSERT_EQ(function->chunk.code.size(), 4);
+  ASSERT_EQ(function->chunk.code[0], OptCode::OP_CONSTANT);
+  ASSERT_EQ(function->chunk.code[1], 0);
+  ASSERT_EQ(function->chunk.constants.values.size(), 1);
+  ASSERT_EQ(function->chunk.constants.values[0].number, 100);
+}
