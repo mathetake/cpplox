@@ -53,20 +53,43 @@ void initializeParseRules() {
 
 Compiler::Compiler(const char* source, FunctionType functionType,
                    Table* stringTable, Obj** objects)
-    : scanner(Scanner(source)),
+    : scanner(new Scanner(source)),
       objects(objects),
       stringTable(stringTable),
       localCount(0),
       scopeDepth(0),
       functionType(functionType),
-      parser(Parser{}) {
+      parser(new Parser{}),
+      enclosing(nullptr) {
   initializeParseRules();
 
   function = new ObjFunction{};
   Local* local = &locals[localCount++];
   local->depth = 0;
   local->name.start = "";
-  local->name.start = 0;
+  local->name.length = 0;
+}
+
+Compiler::Compiler(Compiler* parent, FunctionType functionType)
+    : scanner(parent->scanner),
+      objects(parent->objects),
+      stringTable(parent->stringTable),
+      localCount(0),
+      scopeDepth(0),
+      functionType(functionType),
+      parser(parent->parser),
+      enclosing(parent) {
+  function = new ObjFunction{};
+
+  if (functionType != TYPE_SCRIPT) {
+    function->name =
+        new ObjString(parser->previous.start, parser->previous.length);
+  }
+
+  Local* local = &locals[localCount++];
+  local->depth = 0;
+  local->name.start = "";
+  local->name.length = 0;
 }
 
 ObjFunction* Compiler::compile() {
@@ -76,7 +99,7 @@ ObjFunction* Compiler::compile() {
   }
 
   ObjFunction* function = endCompiler();
-  return parser.hadError ? NULL : function;
+  return parser->hadError ? NULL : function;
 }
 
 bool Compiler::match(TokenType type) {
@@ -85,16 +108,52 @@ bool Compiler::match(TokenType type) {
   return true;
 }
 
-bool Compiler::check(TokenType type) { return parser.current.type == type; }
+bool Compiler::check(TokenType type) { return parser->current.type == type; }
 
 void Compiler::declaration() {
-  if (match(TOKEN_VAR)) {
+  if (match(TOKEN_FUN)) {
+    functionDeclaration();
+  } else if (match(TOKEN_VAR)) {
     varDeclaration();
   } else {
     statement();
   }
 
-  if (parser.panicMode) synchronize();
+  if (parser->panicMode) synchronize();
+}
+
+void Compiler::functionDeclaration() {
+  uint8_t global = parseVariable("Expect function name.");
+  markInitialized();
+  compileFunction(TYPE_FUNCTION);
+  defineVariable(global);
+}
+
+void Compiler::compileFunction(FunctionType type) {
+  auto child = Compiler(this, type);
+  child.beginScope();
+  child.consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+  if (!child.check(TOKEN_RIGHT_PAREN)) {
+    do {
+      child.function->arity++;
+      if (child.function->arity > 255) {
+        child.errorAtCurrent("Cannot have more than 255 parameters.");
+      }
+
+      uint8_t paramConstant = child.parseVariable("Expect parameter name.");
+      child.defineVariable(paramConstant);
+    } while (child.match(TOKEN_COMMA));
+  }
+
+  child.consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+
+  // The body.
+  child.consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+  child.block();
+
+  ObjFunction* function = child.endCompiler();
+
+  emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
 }
 
 void Compiler::statement() {
@@ -300,11 +359,11 @@ uint8_t Compiler::parseVariable(const char* errorMessage) {
     return 0;
   }
 
-  return identifierConstant(&parser.previous);
+  return identifierConstant(&parser->previous);
 }
 
 void Compiler::declareVariable() {
-  Token* name = &parser.previous;
+  Token* name = &parser->previous;
   for (int i = localCount - 1; i >= 0; i--) {
     Local* local = &locals[i];
     if (local->depth != -1 && local->depth < scopeDepth) {
@@ -328,7 +387,10 @@ void Compiler::addLocal(Token name) {
   local->depth = -1;
 }
 
-void Compiler::markInitialized() { locals[localCount - 1].depth = scopeDepth; }
+void Compiler::markInitialized() {
+  if (scopeDepth == 0) return;
+  locals[localCount - 1].depth = scopeDepth;
+}
 
 uint8_t Compiler::identifierConstant(const Token* name) {
   return makeConstant(OBJ_VAL(
@@ -353,7 +415,7 @@ ObjFunction* Compiler::endCompiler() {
   emitReturn();
   ObjFunction* ret = function;
 #ifdef DEBUG_PRINT_CODE
-  if (!parser.hadError) {
+  if (!parser->hadError) {
     disassembleChunk(&function->chunk, function->name != nullptr
                                            ? function->name->str.c_str()
                                            : "script");
@@ -363,18 +425,18 @@ ObjFunction* Compiler::endCompiler() {
 }
 
 void Compiler::advance() {
-  parser.previous = parser.current;
+  parser->previous = parser->current;
 
   while (true) {
-    parser.current = scanner.scanToken();
-    if (parser.current.type != TokenType::TOKEN_ERROR) break;
+    parser->current = scanner->scanToken();
+    if (parser->current.type != TokenType::TOKEN_ERROR) break;
 
-    errorAtCurrent(parser.current.start);
+    errorAtCurrent(parser->current.start);
   }
 }
 
 void Compiler::consume(TokenType type, const char* message) {
-  if (parser.current.type == type) {
+  if (parser->current.type == type) {
     advance();
     return;
   }
@@ -382,8 +444,8 @@ void Compiler::consume(TokenType type, const char* message) {
 }
 
 void Compiler::errorAt(Token* token, const char* message) {
-  if (parser.panicMode) return;
-  parser.panicMode = true;
+  if (parser->panicMode) return;
+  parser->panicMode = true;
 
   fprintf(stderr, "[line %d] Error", token->line);
 
@@ -396,15 +458,15 @@ void Compiler::errorAt(Token* token, const char* message) {
   }
 
   fprintf(stderr, ": %s\n", message);
-  parser.hadError = true;
+  parser->hadError = true;
 }
 void Compiler::synchronize() {
-  parser.panicMode = false;
+  parser->panicMode = false;
 
-  while (parser.current.type != TOKEN_EOF) {
-    if (parser.previous.type == TOKEN_SEMICOLON) return;
+  while (parser->current.type != TOKEN_EOF) {
+    if (parser->previous.type == TOKEN_SEMICOLON) return;
 
-    switch (parser.current.type) {
+    switch (parser->current.type) {
       case TOKEN_CLASS:
       case TOKEN_FUN:
       case TOKEN_VAR:
@@ -421,7 +483,7 @@ void Compiler::synchronize() {
 }
 
 void Compiler::emitByte(uint8_t byte) {
-  function->chunk.write_chunk(byte, parser.previous.line);
+  function->chunk.write_chunk(byte, parser->previous.line);
 }
 
 void Compiler::emitConstant(Value value) {
@@ -441,7 +503,7 @@ void Compiler::expression() { parsePrecedence(Precedence::PREC_ASSIGNMENT); }
 
 void Compiler::parsePrecedence(Precedence precedence) {
   advance();
-  auto prefixRule = getRule(parser.previous.type)->prefix;
+  auto prefixRule = getRule(parser->previous.type)->prefix;
   if (prefixRule == nullptr) {
     return;
   }
@@ -449,15 +511,15 @@ void Compiler::parsePrecedence(Precedence precedence) {
   bool canAssign = precedence <= PREC_ASSIGNMENT;
   prefixRule(this, canAssign);
 
-  while (precedence <= getRule(parser.current.type)->precedence) {
+  while (precedence <= getRule(parser->current.type)->precedence) {
     advance();
-    auto infixRule = getRule(parser.previous.type)->infix;
+    auto infixRule = getRule(parser->previous.type)->infix;
     infixRule(this, canAssign);
   }
 };
 
 void number(Compiler* compiler, bool canAssign) {
-  double value = strtod(compiler->parser.previous.start, NULL);
+  double value = strtod(compiler->parser->previous.start, NULL);
   compiler->emitConstant(NUMBER_VAL(value));
 }
 
@@ -467,7 +529,7 @@ void grouping(Compiler* compiler, bool canAssign) {
 }
 
 void unary(Compiler* compiler, bool canAssign) {
-  auto type = compiler->parser.previous.type;
+  auto type = compiler->parser->previous.type;
 
   compiler->parsePrecedence(Precedence::PREC_UNARY);
 
@@ -483,7 +545,7 @@ void unary(Compiler* compiler, bool canAssign) {
 }
 
 void binary(Compiler* compiler, bool canAssign) {
-  TokenType type = compiler->parser.previous.type;
+  TokenType type = compiler->parser->previous.type;
 
   auto rule = getRule(type);
   compiler->parsePrecedence(static_cast<Precedence>(rule->precedence + 1));
@@ -525,7 +587,7 @@ void binary(Compiler* compiler, bool canAssign) {
 }
 
 void literal(Compiler* compiler, bool canAssign) {
-  switch (compiler->parser.previous.type) {
+  switch (compiler->parser->previous.type) {
     case TOKEN_TRUE:
       compiler->emitByte(OP_TRUE);
       break;
@@ -541,13 +603,14 @@ void literal(Compiler* compiler, bool canAssign) {
 }
 
 void string(Compiler* compiler, bool canAssign) {
-  compiler->emitConstant(OBJ_VAL(allocateStringObject(
-      compiler->parser.previous.start + 1, compiler->parser.previous.length - 2,
-      compiler->stringTable, compiler->objects)));
+  compiler->emitConstant(
+      OBJ_VAL(allocateStringObject(compiler->parser->previous.start + 1,
+                                   compiler->parser->previous.length - 2,
+                                   compiler->stringTable, compiler->objects)));
 }
 
 void variable(Compiler* compiler, bool canAssign) {
-  compiler->namedVariable(compiler->parser.previous, canAssign);
+  compiler->namedVariable(compiler->parser->previous, canAssign);
 }
 
 void andOp(Compiler* compiler, bool canAssign) {

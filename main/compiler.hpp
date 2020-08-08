@@ -41,8 +41,8 @@ class Local {
 
 class Compiler {
  public:
-  Scanner scanner;
-  Parser parser;
+  Scanner* scanner;
+  Parser* parser;
   Table* stringTable;
   Obj** objects;
 
@@ -58,6 +58,10 @@ class Compiler {
 
   Compiler(const char* source, Table* stringTable, Obj** objects)
       : Compiler(source, FunctionType::TYPE_SCRIPT, stringTable, objects){};
+
+  Compiler* enclosing;
+  Compiler(Compiler* parent, FunctionType type);
+  void freeCompiler() { delete parser, delete scanner; };
 
   ObjFunction* compile();
   void advance();
@@ -83,7 +87,9 @@ class Compiler {
   void printStatement();
   void expressionStatement();
   void varDeclaration();
+  void functionDeclaration();
   void declareVariable();
+  void compileFunction(FunctionType type);
   uint8_t parseVariable(const char* errorMessage);
   uint8_t identifierConstant(const Token* name);
   void defineVariable(uint8_t global);
@@ -104,9 +110,9 @@ class Compiler {
 
   // errors
   void errorAt(Token* token, const char* message);
-  void error(const char* message) { errorAt(&parser.previous, message); }
+  void error(const char* message) { errorAt(&parser->previous, message); }
   void errorAtCurrent(const char* message) {
-    errorAt(&parser.current, message);
+    errorAt(&parser->current, message);
   }
   void synchronize();
 };

@@ -4,190 +4,178 @@
 
 #include "main/value.hpp"
 
+Obj* tmpObj = new Obj{};
+
+#define NEW_COMPILER(source) new Compiler(source, new Table{}, &tmpObj)
+
 TEST(Compiler, check) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("true", new Table{}, &obj);
-  compiler.advance();
-  ASSERT_TRUE(compiler.check(TokenType::TOKEN_TRUE));
-  ASSERT_FALSE(compiler.check(TokenType::TOKEN_FALSE));
+  auto compiler = NEW_COMPILER("true");
+  compiler->advance();
+  ASSERT_TRUE(compiler->check(TokenType::TOKEN_TRUE));
+  ASSERT_FALSE(compiler->check(TokenType::TOKEN_FALSE));
 }
 
 TEST(Compiler, match) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("1011", new Table{}, &obj);
-  compiler.advance();
-  ASSERT_TRUE(compiler.match(TokenType::TOKEN_NUMBER));
-  ASSERT_TRUE(compiler.match(TokenType::TOKEN_EOF));
+  auto compiler = NEW_COMPILER("1011");
+  compiler->advance();
+  ASSERT_TRUE(compiler->match(TokenType::TOKEN_NUMBER));
+  ASSERT_TRUE(compiler->match(TokenType::TOKEN_EOF));
 }
 
 TEST(Compiler, Constructor) {
-  const char* src = "abcde";
+  auto src = "abcde";
   auto obj = new Obj{};
   auto strTable = new Table{};
-  auto compiler = Compiler(src, strTable, &obj);
+  auto compiler = new Compiler(src, strTable, &obj);
 
-  EXPECT_EQ(compiler.stringTable, strTable);
-  EXPECT_EQ(compiler.objects, &obj);
-  EXPECT_EQ(compiler.scanner.start, src);
+  EXPECT_EQ(compiler->stringTable, strTable);
+  EXPECT_EQ(compiler->objects, &obj);
+  EXPECT_EQ(compiler->scanner->start, src);
 }
 
 TEST(Compiler, emitReturn) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("", new Table{}, &obj);
-  compiler.emitReturn();
-  EXPECT_EQ(1, compiler.function->chunk.code.size());
+  auto compiler = NEW_COMPILER("");
+  compiler->emitReturn();
+  EXPECT_EQ(1, compiler->function->chunk.code.size());
 }
 
 TEST(Compiler, endCompiler) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("", new Table{}, &obj);
-  compiler.endCompiler();
-  EXPECT_EQ(1, compiler.function->chunk.code.size());
+  auto compiler = NEW_COMPILER("");
+  compiler->endCompiler();
+  EXPECT_EQ(1, compiler->function->chunk.code.size());
 }
 
 TEST(Compiler, advance) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("this", new Table{}, &obj);
-  compiler.advance();
-  EXPECT_FALSE(compiler.parser.panicMode);
+  auto compiler = NEW_COMPILER("this");
+  compiler->advance();
+  EXPECT_FALSE(compiler->parser->panicMode);
 
-  compiler = Compiler("\"afa", new Table{}, &obj);
-  compiler.advance();
-  EXPECT_TRUE(compiler.parser.panicMode);
+  compiler = NEW_COMPILER("\"afa");
+  compiler->advance();
+  EXPECT_TRUE(compiler->parser->panicMode);
 }
 
 TEST(Compiler, consume) {
-  auto obj = new Obj{};
   const char* msg = "error";
-  auto compiler = Compiler("this", new Table{}, &obj);
-  compiler.parser.current = compiler.scanner.scanToken();
-  compiler.consume(TokenType::TOKEN_THIS, msg);
-  EXPECT_FALSE(compiler.parser.panicMode);
+  auto compiler = NEW_COMPILER("this");
+  compiler->parser->current = compiler->scanner->scanToken();
+  compiler->consume(TokenType::TOKEN_THIS, msg);
+  EXPECT_FALSE(compiler->parser->panicMode);
 
-  compiler = Compiler("thi ", new Table{}, &obj);
-  compiler.parser.current = compiler.scanner.scanToken();
-  compiler.consume(TokenType::TOKEN_THIS, msg);
-  EXPECT_TRUE(compiler.parser.panicMode);
+  compiler = NEW_COMPILER("thi ");
+  compiler->parser->current = compiler->scanner->scanToken();
+  compiler->consume(TokenType::TOKEN_THIS, msg);
+  EXPECT_TRUE(compiler->parser->panicMode);
 }
 
 TEST(Compiler, errorAt) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("this", new Table{}, &obj);
-  compiler.errorAt(new Token{}, "msg");
-  EXPECT_TRUE(compiler.parser.panicMode);
-  EXPECT_TRUE(compiler.parser.hadError);
+  auto compiler = NEW_COMPILER("this");
+  compiler->errorAt(new Token{}, "msg");
+  EXPECT_TRUE(compiler->parser->panicMode);
+  EXPECT_TRUE(compiler->parser->hadError);
 }
 
 TEST(Compiler, emitByte) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("this", new Table{}, &obj);
-  compiler.parser.previous.line = 255;
-  compiler.emitByte(255);
+  auto compiler = NEW_COMPILER("this");
+  compiler->parser->previous.line = 255;
+  compiler->emitByte(255);
 
-  EXPECT_EQ(compiler.function->chunk.code[0], 255);
-  EXPECT_EQ(compiler.function->chunk.lines[0], 255);
+  EXPECT_EQ(compiler->function->chunk.code[0], 255);
+  EXPECT_EQ(compiler->function->chunk.lines[0], 255);
 }
 
 TEST(Compiler, emitConstant) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("this", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("this");
   Value value = NUMBER_VAL(1.1);
-  compiler.parser.previous.line = 255;
-  compiler.emitConstant(value);
-  EXPECT_EQ(compiler.function->chunk.code[0], OptCode::OP_CONSTANT);
-  EXPECT_EQ(compiler.function->chunk.code[1], 0);
-  EXPECT_DOUBLE_EQ(compiler.function->chunk.constants.peek()->number,
+  compiler->parser->previous.line = 255;
+  compiler->emitConstant(value);
+  EXPECT_EQ(compiler->function->chunk.code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler->function->chunk.code[1], 0);
+  EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.peek()->number,
                    value.number);
 }
 
 TEST(Compiler, expressionStatement) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("1.1;", new Table{}, &obj);
-  compiler.advance();
-  compiler.expressionStatement();
-  ASSERT_EQ(compiler.function->chunk.constants.values.size(), 1);
-  EXPECT_DOUBLE_EQ(compiler.function->chunk.constants.peek()->number, 1.1);
-  ASSERT_EQ(compiler.function->chunk.code.size(), 3);
-  EXPECT_EQ(compiler.function->chunk.code[0], OptCode::OP_CONSTANT);
-  EXPECT_EQ(compiler.function->chunk.code[1], 0);
-  EXPECT_EQ(compiler.function->chunk.code[2], OptCode::OP_POP);
+  auto compiler = NEW_COMPILER("1.1;");
+  compiler->advance();
+  compiler->expressionStatement();
+  ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.peek()->number, 1.1);
+  ASSERT_EQ(compiler->function->chunk.code.size(), 3);
+  EXPECT_EQ(compiler->function->chunk.code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler->function->chunk.code[1], 0);
+  EXPECT_EQ(compiler->function->chunk.code[2], OptCode::OP_POP);
 }
 
 TEST(Compiler, printStatement) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("1.1;", new Table{}, &obj);
-  compiler.advance();
-  compiler.printStatement();
-  ASSERT_EQ(compiler.function->chunk.constants.values.size(), 1);
-  EXPECT_DOUBLE_EQ(compiler.function->chunk.constants.peek()->number, 1.1);
-  ASSERT_EQ(compiler.function->chunk.code.size(), 3);
-  EXPECT_EQ(compiler.function->chunk.code[0], OptCode::OP_CONSTANT);
-  EXPECT_EQ(compiler.function->chunk.code[1], 0);
-  EXPECT_EQ(compiler.function->chunk.code[2], OptCode::OP_PRINT);
+  auto compiler = NEW_COMPILER("1.1;");
+  compiler->advance();
+  compiler->printStatement();
+  ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.peek()->number, 1.1);
+  ASSERT_EQ(compiler->function->chunk.code.size(), 3);
+  EXPECT_EQ(compiler->function->chunk.code[0], OptCode::OP_CONSTANT);
+  EXPECT_EQ(compiler->function->chunk.code[1], 0);
+  EXPECT_EQ(compiler->function->chunk.code[2], OptCode::OP_PRINT);
 }
 
 TEST(Compiler, defineVariable) {
   {  // global variable
-    auto obj = new Obj{};
-    auto compiler = Compiler("", new Table{}, &obj);
-    compiler.defineVariable(233);
-    ASSERT_EQ(compiler.function->chunk.code.size(), 2);
-    ASSERT_EQ(compiler.function->chunk.code[0], OptCode::OP_DEFINE_GLOBAL);
-    ASSERT_EQ(compiler.function->chunk.code[1], 233);
+    auto compiler = NEW_COMPILER("");
+    compiler->defineVariable(233);
+    ASSERT_EQ(compiler->function->chunk.code.size(), 2);
+    ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_DEFINE_GLOBAL);
+    ASSERT_EQ(compiler->function->chunk.code[1], 233);
   }
   {
-    auto obj = new Obj{};
-    auto compiler = Compiler("", new Table{}, &obj);
-    compiler.scopeDepth = 100;
-    compiler.localCount++;
-    compiler.defineVariable(233);
-    ASSERT_EQ(compiler.locals[1].depth, 100);
+    auto compiler = NEW_COMPILER("");
+    compiler->scopeDepth = 100;
+    compiler->localCount++;
+    compiler->defineVariable(233);
+    ASSERT_EQ(compiler->locals[1].depth, 100);
   }
 }
 
 TEST(Compiler, parseVariable) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("abcd", new Table{}, &obj);
-  compiler.advance();
-  compiler.parseVariable("aaa");
-  ASSERT_EQ(compiler.function->chunk.constants.values.size(), 1);
-  ASSERT_EQ(((ObjString*)(compiler.function->chunk.constants.peek()->obj))->str,
-            "abcd");
+  auto compiler = NEW_COMPILER("abcd");
+  compiler->advance();
+  compiler->parseVariable("aaa");
+  ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  ASSERT_EQ(
+      ((ObjString*)(compiler->function->chunk.constants.peek()->obj))->str,
+      "abcd");
 }
 
 TEST(Compiler, identifierConstant) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("abcd", new Table{}, &obj);
-  Token token = compiler.scanner.scanToken();
-  compiler.identifierConstant(&token);
-  ASSERT_EQ(compiler.function->chunk.constants.values.size(), 1);
-  ASSERT_EQ(((ObjString*)(compiler.function->chunk.constants.peek()->obj))->str,
-            "abcd");
+  auto compiler = NEW_COMPILER("abcd");
+  Token token = compiler->scanner->scanToken();
+  compiler->identifierConstant(&token);
+  ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  ASSERT_EQ(
+      ((ObjString*)(compiler->function->chunk.constants.peek()->obj))->str,
+      "abcd");
 }
 
 TEST(Compiler, makeConstant) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("this", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("this");
   Value value = NUMBER_VAL(1.1);
-  EXPECT_EQ(compiler.makeConstant(value), 0);
-  EXPECT_DOUBLE_EQ(compiler.function->chunk.constants.peek()->number,
+  EXPECT_EQ(compiler->makeConstant(value), 0);
+  EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.peek()->number,
                    value.number);
-  EXPECT_EQ(compiler.function->chunk.constants.values.size(), 1);
+  EXPECT_EQ(compiler->function->chunk.constants.values.size(), 1);
 }
 
 TEST(Compiler, number) {
-  auto obj = new Obj{};
-  auto compiler = Compiler("1.1", new Table{}, &obj);
-  compiler.advance(), compiler.advance();
+  auto compiler = NEW_COMPILER("1.1");
+  compiler->advance(), compiler->advance();
 
-  number(&compiler, false);
-  EXPECT_EQ(compiler.function->chunk.constants.values.size(), 1);
-  EXPECT_DOUBLE_EQ(compiler.function->chunk.constants.peek()->number, 1.1);
+  number(compiler, false);
+  EXPECT_EQ(compiler->function->chunk.constants.values.size(), 1);
+  EXPECT_DOUBLE_EQ(compiler->function->chunk.constants.peek()->number, 1.1);
 }
 
 TEST(Compiler, grouping) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("(1+2)", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("(1+2)");
   compiler->advance();  // current on (
   grouping(compiler, false);
   EXPECT_EQ(compiler->function->chunk.constants.values.size(), 2);
@@ -202,8 +190,7 @@ TEST(Compiler, grouping) {
 TEST(Compiler, binary) {
 #define run(op, opt_code, is_pair, second_opt_code)                            \
   {                                                                            \
-    auto obj = new Obj{};                                                      \
-    auto compiler = new Compiler("1" #op "2", new Table{}, &obj);              \
+    auto compiler = NEW_COMPILER("1" #op "2");                                 \
     compiler->advance();                                                       \
     binary(compiler, false);                                                   \
     EXPECT_EQ(compiler->function->chunk.constants.values.size(), 2);           \
@@ -235,8 +222,7 @@ TEST(Compiler, binary) {
 
 TEST(Compiler, unary) {
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("-100", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("-100");
     compiler->advance();  // previous on -
     unary(compiler, false);
     EXPECT_EQ(compiler->function->chunk.constants.values.size(), 1);
@@ -247,8 +233,7 @@ TEST(Compiler, unary) {
     EXPECT_EQ(compiler->function->chunk.code[2], OptCode::OP_NEGATE);
   }
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("!true", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("!true");
     compiler->advance();  // previous on !
     unary(compiler, false);
     ASSERT_EQ(compiler->function->chunk.code.size(), 2);
@@ -258,8 +243,7 @@ TEST(Compiler, unary) {
 }
 
 TEST(Compiler, literal) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("false true nil", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("false true nil");
   compiler->advance(), compiler->advance();
   literal(compiler, false);
   ASSERT_TRUE(compiler->function->chunk.code.size() > 0);
@@ -274,11 +258,10 @@ TEST(Compiler, literal) {
 
 TEST(Compiler, namedVariable) {
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("variable", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("variable");
     compiler->advance();
     compiler->advance();
-    compiler->namedVariable(compiler->parser.previous, false);
+    compiler->namedVariable(compiler->parser->previous, false);
     ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);
     ASSERT_EQ(
         ((ObjString*)(compiler->function->chunk.constants.peek()->obj))->str,
@@ -288,11 +271,10 @@ TEST(Compiler, namedVariable) {
     ASSERT_EQ(compiler->function->chunk.code[1], 0);
   }
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("variable = 1000.1", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("variable = 1000.1");
     compiler->advance();
     compiler->advance();
-    compiler->namedVariable(compiler->parser.previous, true);
+    compiler->namedVariable(compiler->parser->previous, true);
     ASSERT_EQ(compiler->function->chunk.constants.values.size(), 2);
     ASSERT_EQ(
         ((ObjString*)(compiler->function->chunk.constants.values[0].obj))->str,
@@ -308,9 +290,7 @@ TEST(Compiler, namedVariable) {
 }
 
 TEST(Compiler, string) {
-  auto obj = new Obj{};
-  std::string raw = "\"this is string\"";
-  auto compiler = new Compiler(raw.c_str(), new Table{}, &obj);
+  auto compiler = NEW_COMPILER("\"this is string\"");
   compiler->advance(), compiler->advance();
   string(compiler, false);
   ASSERT_EQ(compiler->function->chunk.code.size(), 2);
@@ -325,8 +305,7 @@ TEST(Compiler, string) {
 
 TEST(Compiler, expression) {
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("1+(2*3)", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("1+(2*3)");
     compiler->advance();  // current on 1
     compiler->expression();
     EXPECT_EQ(compiler->function->chunk.constants.values.size(), 3);
@@ -348,8 +327,7 @@ TEST(Compiler, expression) {
     EXPECT_EQ(compiler->function->chunk.code[7], OptCode::OP_ADD);
   }
   {
-    auto obj = new Obj{};
-    auto compiler = new Compiler("1+(2*3-1.1)", new Table{}, &obj);
+    auto compiler = NEW_COMPILER("1+(2*3-1.1)");
     compiler->advance();  // current on 1
     compiler->expression();
     EXPECT_EQ(compiler->function->chunk.constants.values.size(), 4);
@@ -378,8 +356,7 @@ TEST(Compiler, expression) {
 }
 
 TEST(Compiler, parsePrecedence) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("-1.1+1000", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("-1.1+1000");
   compiler->advance();  // current on -
   compiler->parsePrecedence(Precedence::PREC_TERM);
   EXPECT_EQ(compiler->function->chunk.constants.values.size(), 1);
@@ -392,8 +369,7 @@ TEST(Compiler, parsePrecedence) {
 }
 
 TEST(Compiler, addLocal) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("");
   Token token;
 
   // too many
@@ -409,8 +385,7 @@ TEST(Compiler, addLocal) {
 }
 
 TEST(Compiler, declareVariable) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("a a", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("a a");
   compiler->advance(), compiler->advance();  // previous on a
   compiler->localCount = 1;
   compiler->locals[0].depth = 1;
@@ -421,19 +396,17 @@ TEST(Compiler, declareVariable) {
 
   compiler->advance();
   compiler->declareVariable();  // already defined
-  EXPECT_TRUE(compiler->parser.panicMode);
+  EXPECT_TRUE(compiler->parser->panicMode);
 }
 
 TEST(Compiler, beginScope) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("");
   compiler->beginScope();
   EXPECT_EQ(compiler->scopeDepth, 1);
 }
 
 TEST(Compiler, endScope) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("a a", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("a a");
   compiler->scopeDepth = 10;
 
   auto count = 100;
@@ -447,20 +420,18 @@ TEST(Compiler, endScope) {
 }
 
 TEST(Compiler, resolveLocal) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("a a", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("a a");
   compiler->advance(), compiler->advance();  // previous on a
   compiler->localCount = 1;
   compiler->locals[0].depth = 1;
   compiler->scopeDepth = 2;
   compiler->declareVariable();
 
-  ASSERT_EQ(compiler->resolveLocal(&compiler->parser.current), 1);
+  ASSERT_EQ(compiler->resolveLocal(&compiler->parser->current), 1);
 }
 
 TEST(Compiler, emitJump) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("");
   ASSERT_EQ(compiler->emitJump(OptCode::OP_JUMP_IF_FALSE), 1);
   ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_JUMP_IF_FALSE);
   ASSERT_EQ(compiler->function->chunk.code[1], 0xff);
@@ -482,8 +453,7 @@ TEST(Compiler, patchJump) {
 }
 
 TEST(Compiler, andOp) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("true", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("true");
   compiler->advance();  // curren on true
   andOp(compiler, false);
 
@@ -496,8 +466,7 @@ TEST(Compiler, andOp) {
 }
 
 TEST(Compiler, orOp) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("true", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("true");
   compiler->advance();  // curren on true
   orOp(compiler, false);
   ASSERT_EQ(compiler->function->chunk.code.size(), 8);
@@ -512,11 +481,12 @@ TEST(Compiler, orOp) {
 }
 
 TEST(Compiler, emitLoop) {
-  auto obj = new Obj{};
-  auto compiler = new Compiler("", new Table{}, &obj);
+  auto compiler = NEW_COMPILER("");
   for (auto i = 0; i < 10; i++) compiler->emitByte(0x01);
   compiler->emitLoop(0);
   ASSERT_EQ(compiler->function->chunk.code[10], OptCode::OP_LOOP);
   ASSERT_EQ(compiler->function->chunk.code[11], 0x00);
   ASSERT_EQ(compiler->function->chunk.code[12], 0x0d);
 }
+
+TEST(Compiler, compileFunction) {}

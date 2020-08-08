@@ -225,7 +225,7 @@ IntepretResult VM::run() {
 #undef READ_BYTE
 };
 
-IntepretResult VM::interpret(ObjFunction* function) {  // for testing purpose
+IntepretResult VM::interpret(ObjFunction* function) {
   CallFrame* frame = &frames[frameCount++];
   frame->function = function;
   frame->ip = &function->chunk.code.front();
@@ -241,10 +241,7 @@ IntepretResult VM::interpret(const char* source) {
   if (function == nullptr) return IntepretResult::INTERPRET_COMPILE_ERROR;
 
   push(OBJ_VAL(function));
-  CallFrame* frame = &frames[frameCount++];
-  frame->function = function;
-  frame->ip = &function->chunk.code.front();
-  frame->slots = stack;
+  interpret(function);
   return run();
 }
 
