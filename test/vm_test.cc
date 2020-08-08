@@ -47,7 +47,7 @@ TEST(VM, OP_GET_GLOBAL) {
   vm_local.globals.set(variable, NUMBER_VAL(1.2));
   vm_local.interpret(CHUNK_AS_FUNC(c));
   vm_local.run();
-  EXPECT_DOUBLE_EQ(vm_local.peek(0).number, 1.2);
+  EXPECT_DOUBLE_EQ(vm_local.stack[0].number, 1.2);
 }
 
 TEST(VM, run_arithmetic) {
@@ -74,7 +74,7 @@ TEST(VM, run_arithmetic) {
   VM vm_local{};
   vm_local.interpret(CHUNK_AS_FUNC(*c));
   EXPECT_EQ(vm_local.run(), IntepretResult::INTERPRET_OK);
-  EXPECT_DOUBLE_EQ((vm_local.stack_top - 1)->number, -0.575);  // -(1.2+3.4)/5.6
+  EXPECT_DOUBLE_EQ(vm_local.stack[0].number, -0.575);  // -(1.2+3.4)/5.6
 }
 
 TEST(VM, initVM) {
@@ -128,19 +128,19 @@ TEST(VM, binary_op) {
 
   // add
   run(OptCode::OP_ADD, 10, 100);
-  EXPECT_DOUBLE_EQ(110, (vm_local.stack_top - 1)->number) << "must be 110";
+  EXPECT_DOUBLE_EQ(110, vm_local.stack[0].number) << "must be 110";
 
   // sub
   run(OptCode::OP_SUBTRACT, 10, 100);
-  EXPECT_DOUBLE_EQ(-90, (vm_local.stack_top - 1)->number) << "must be -90";
+  EXPECT_DOUBLE_EQ(-90, vm_local.stack[0].number) << "must be -90";
 
   // mul
   run(OptCode::OP_MULTIPLY, 10, 100);
-  EXPECT_DOUBLE_EQ(1000, (vm_local.stack_top - 1)->number) << "must be 1000";
+  EXPECT_DOUBLE_EQ(1000, vm_local.stack[0].number) << "must be 1000";
 
   // sub
   run(OptCode::OP_DIVIDE, 10, 100);
-  EXPECT_DOUBLE_EQ(0.1, (vm_local.stack_top - 1)->number) << "must be 0.1";
+  EXPECT_DOUBLE_EQ(0.1, vm_local.stack[0].number) << "must be 0.1";
 
   // ==
   run(OptCode::OP_EQUAL, 10, 100);

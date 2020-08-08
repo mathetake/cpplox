@@ -36,13 +36,13 @@ TEST(Compiler, Constructor) {
 TEST(Compiler, emitReturn) {
   auto compiler = NEW_COMPILER("");
   compiler->emitReturn();
-  EXPECT_EQ(1, compiler->function->chunk.code.size());
+  EXPECT_EQ(2, compiler->function->chunk.code.size());
 }
 
 TEST(Compiler, endCompiler) {
   auto compiler = NEW_COMPILER("");
   compiler->endCompiler();
-  EXPECT_EQ(1, compiler->function->chunk.code.size());
+  EXPECT_EQ(2, compiler->function->chunk.code.size());
 }
 
 TEST(Compiler, advance) {
@@ -491,7 +491,6 @@ TEST(Compiler, emitLoop) {
 
 TEST(Compiler, compileFunction) {
   auto compiler = NEW_COMPILER("name () { 100;}");
-  ASSERT_EQ(compiler->function->name->str, "");
   compiler->advance(), compiler->advance();
   compiler->compileFunction(FunctionType::TYPE_FUNCTION);
   ASSERT_EQ(compiler->function->chunk.code.size(), 2);
@@ -506,7 +505,7 @@ TEST(Compiler, compileFunction) {
   ASSERT_TRUE(function);
 
   ASSERT_EQ(function->name->str, "name");
-  ASSERT_EQ(function->chunk.code.size(), 4);
+  ASSERT_EQ(function->chunk.code.size(), 5);
   ASSERT_EQ(function->chunk.code[0], OptCode::OP_CONSTANT);
   ASSERT_EQ(function->chunk.code[1], 0);
   ASSERT_EQ(function->chunk.constants.values.size(), 1);

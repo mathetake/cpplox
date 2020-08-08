@@ -1,5 +1,7 @@
 #include "vm.hpp"
 
+#include <time.h>
+
 #include <iostream>
 
 #include "common.hpp"
@@ -9,12 +11,18 @@
 #include "value.hpp"
 
 #define DEBUG_TRACE_EXECUTION
+
+Value clockNative(int argCount, Value* args) {
+  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+}
+
 VM vm{};
 
 VM::VM() {
   objects = nullptr;
   frameCount = 0;
   reset_stack();
+  defineNative("clock", 5, clockNative);
 }
 
 VM::~VM() { freeVM(); }
@@ -50,12 +58,34 @@ void VM::runtimeError(const char* format, ...) {
   va_end(args);
   fputs("\n", stderr);
 
-  CallFrame* frame = &vm.frames[frameCount - 1];
+  CallFrame* frame = &frames[frameCount - 1];
 
   size_t instruction = *(frame->ip - frame->function->chunk.code.front()) - 1;
   int line = frame->function->chunk.lines[instruction];
   fprintf(stderr, "[line %d] in script\n", line);
+
+  for (int i = frameCount - 1; i >= 0; i--) {
+    CallFrame* frame = &frames[i];
+    ObjFunction* function = frame->function;
+    size_t instruction = *(frame->ip - function->chunk.code.front() - 1);
+    fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+    if (function->name == NULL) {
+      fprintf(stderr, "script\n");
+    } else {
+      fprintf(stderr, "%s()\n", function->name->str.c_str());
+    }
+  }
+
   reset_stack();
+}
+
+void VM::defineNative(const char* name, int length,
+                      NativeFunctionPtr function) {
+  push(OBJ_VAL(allocateStringObject(name, length, &strings, &objects)));
+  push(OBJ_VAL(allocateNativeFnctionObject(function, &objects)));
+  globals.set(AS_STRING(stack[0]), stack[1]);
+  pop();
+  pop();
 }
 
 IntepretResult VM::run() {
@@ -199,7 +229,19 @@ IntepretResult VM::run() {
         break;
       }
       case OP_RETURN: {
-        return IntepretResult::INTERPRET_OK;
+        Value result = pop();
+
+        frameCount--;
+        if (frameCount == 0) {
+          pop();
+          return INTERPRET_OK;
+        }
+
+        stack_top = frame->slots;
+        push(result);
+
+        frame = &frames[frameCount - 1];
+        break;
       }
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
@@ -221,7 +263,7 @@ IntepretResult VM::run() {
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = &vm.frames[vm.frameCount - 1];  // switch to new function frame
+        frame = &frames[frameCount - 1];  // switch to new function frame
       }
     }
   }
@@ -265,7 +307,13 @@ bool VM::callValue(Value callee, int argCount) {
     switch (OBJ_TYPE(callee)) {
       case OBJ_FUNCTION:
         return call(AS_FUNCTION(callee), argCount);
-
+      case OBJ_NATIVE: {
+        NativeFunctionPtr native = AS_NATIVE(callee);
+        Value result = native(argCount, stack_top - argCount);
+        stack_top -= argCount + 1;
+        push(result);
+        return true;
+      }
       default:
         // Non-callable object type.
         break;
@@ -276,6 +324,17 @@ bool VM::callValue(Value callee, int argCount) {
 };
 
 bool VM::call(ObjFunction* function, int argCount) {
+  if (argCount != function->arity) {
+    runtimeError("Expected %d arguments but got %d.", function->arity,
+                 argCount);
+    return false;
+  }
+
+  if (frameCount == FRAMES_MAX) {
+    runtimeError("Stack overflow.");
+    return false;
+  }
+
   CallFrame* frame = &frames[frameCount++];
   frame->function = function;
   frame->ip = &function->chunk.code.front();

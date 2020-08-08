@@ -38,3 +38,26 @@ TEST(Object, hashString) {
   EXPECT_EQ(a, hashString("a", 1));
   EXPECT_NE(a, b);
 }
+
+TEST(Object, allocateFunctionObject) {
+  auto first = new Obj{};
+  first->type = ObjType::OBJ_NATIVE;
+  auto list = &first;
+  auto function = allocateFunctionObject(list);
+  ASSERT_EQ(*list, function);
+  ASSERT_EQ((*list)->next->type, ObjType::OBJ_NATIVE);
+}
+
+Value tmp(int argCount, Value* args) { return NUMBER_VAL(100); }
+
+TEST(Object, allocateNativeFnctionObject) {
+  auto first = new Obj{};
+  first->type = ObjType::OBJ_NATIVE;
+  auto list = &first;
+
+  NativeFunctionPtr ptr = &tmp;
+  auto obj = allocateNativeFnctionObject(ptr, list);
+  ASSERT_EQ(*list, obj);
+  ASSERT_EQ((*list)->next->type, ObjType::OBJ_NATIVE);
+  ASSERT_EQ(obj->func(0, nullptr).number, 100);
+}

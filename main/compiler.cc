@@ -63,7 +63,7 @@ Compiler::Compiler(const char* source, FunctionType functionType,
       enclosing(nullptr) {
   initializeParseRules();
 
-  function = new ObjFunction{};
+  function = allocateFunctionObject(objects);
   Local* local = &locals[localCount++];
   local->depth = 0;
   local->name.start = "";
@@ -79,7 +79,7 @@ Compiler::Compiler(Compiler* parent, FunctionType functionType)
       functionType(functionType),
       parser(parent->parser),
       enclosing(parent) {
-  function = new ObjFunction{};
+  function = allocateFunctionObject(objects);
 
   if (functionType != TYPE_SCRIPT) {
     function->name =
@@ -169,6 +169,8 @@ void Compiler::statement() {
     beginScope();
     block();
     endScope();
+  } else if (match(TOKEN_RETURN)) {
+    returnStatement();
   } else {
     expressionStatement();
   }
@@ -409,7 +411,24 @@ void Compiler::expressionStatement() {
   emitByte(OP_POP);
 }
 
-void Compiler::emitReturn() { emitByte(OptCode::OP_RETURN); };
+void Compiler::returnStatement() {
+  if (functionType == TYPE_SCRIPT) {
+    error("Cannot return from top-level code.");
+  }
+
+  if (match(TOKEN_SEMICOLON)) {
+    emitReturn();
+  } else {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
+    emitByte(OP_RETURN);
+  }
+}
+
+void Compiler::emitReturn() {
+  emitByte(OP_NIL);
+  emitByte(OptCode::OP_RETURN);
+};
 
 ObjFunction* Compiler::endCompiler() {
   emitReturn();

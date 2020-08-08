@@ -19,16 +19,36 @@ bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 };
 
+#define ADD_OBJECT_LISTS(list, target) \
+  {                                    \
+    target->next = *list;              \
+    *list = target;                    \
+  }
+
 ObjString* allocateStringObject(const char* chars, int length,
                                 Table* stringTable, Obj** objects) {
   auto string = new ObjString(chars, length);
+  string->type = ObjType::OBJ_STRING;
   auto found = stringTable->findString(string);
   if (found != nullptr) return found;
-  string->next = *objects;
-  *objects = string;
+  ADD_OBJECT_LISTS(objects, string)
   stringTable->set(string, NIL_VAL);
   return string;
 };
+
+ObjFunction* allocateFunctionObject(Obj** objects) {
+  auto function = new ObjFunction{};
+  function->type = ObjType::OBJ_FUNCTION;
+  ADD_OBJECT_LISTS(objects, function)
+  return function;
+}
+
+ObjNative* allocateNativeFnctionObject(NativeFunctionPtr func, Obj** objects) {
+  auto native = new ObjNative{func};
+  native->type = ObjType::OBJ_NATIVE;
+  ADD_OBJECT_LISTS(objects, native)
+  return native;
+}
 
 void printFunction(ObjFunction* function) {
   if (function->name == NULL) {
@@ -42,6 +62,10 @@ void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
     case OBJ_FUNCTION:
       printFunction(AS_FUNCTION(value));
+      break;
+    case OBJ_NATIVE:
+      printf("<native fn>");
+      break;
     case OBJ_STRING:
       printf("%s", AS_CSTRING(value));
       break;

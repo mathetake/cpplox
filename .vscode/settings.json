@@ -63,6 +63,7 @@
         "queue": "cpp",
         "cstdbool": "cpp",
         "chunk": "cpp",
-        "cstring": "cpp"
+        "cstring": "cpp",
+        "*.inc": "cpp"
     }
 }

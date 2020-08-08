@@ -83,6 +83,7 @@ class Compiler {
   void ifStatement();
   void whileStatement();
   void forStatement();
+  void returnStatement();
   void block();
   void printStatement();
   void expressionStatement();
@@ -118,20 +119,6 @@ class Compiler {
   void synchronize();
 };
 
-// parse rule table
-typedef void (*ParseFn)(Compiler*, bool);
-
-class ParseRule {
- public:
-  ParseFn prefix;
-  ParseFn infix;
-  ParseRule(){};
-  ParseRule(ParseFn pre, ParseFn in, Precedence precedence)
-      : prefix(pre), infix(in), precedence(precedence){};
-  Precedence precedence;
-};
-void initializeParseRules();
-
 void number(Compiler* compiler, bool canAssign);
 void grouping(Compiler* compiler, bool canAssign);
 void unary(Compiler* compiler, bool canAssign);
@@ -142,4 +129,21 @@ void variable(Compiler* compiler, bool canAssign);
 void andOp(Compiler* compiler, bool canAssign);
 void orOp(Compiler* compiler, bool canAssign);
 void call(Compiler* compiler, bool canAssign);
+
+// parse rule table
+using ParseFn = void(Compiler*, bool);
+using ParseFnPtr = ParseFn*;
+
+class ParseRule {
+ public:
+  ParseFnPtr prefix;
+  ParseFnPtr infix;
+  ParseRule(){};
+  ParseRule(ParseFnPtr pre, ParseFnPtr in, Precedence precedence)
+      : prefix(pre), infix(in), precedence(precedence){};
+  Precedence precedence;
+};
+
+void initializeParseRules();
+
 #endif

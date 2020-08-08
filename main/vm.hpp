@@ -51,6 +51,8 @@ class VM {
   bool callValue(Value callee, int argCount);
   bool call(ObjFunction* function, int argCount);
 
+  void defineNative(const char* name, int length, NativeFunctionPtr function);
+
   void concatenate();
   void runtimeError(const char* format, ...);
 };

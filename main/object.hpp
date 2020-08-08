@@ -10,8 +10,10 @@
 
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
 #define IS_STRING(value) isObjType(value, OBJ_STRING)
+#define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 
 #define AS_FUNCTION(value) ((ObjFunction*)AS_OBJ(value))
+#define AS_NATIVE(value) (((ObjNative*)AS_OBJ(value))->func)
 #define AS_STRING(value) ((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->str.c_str())
 
@@ -20,6 +22,7 @@ class Table;
 enum ObjType {
   OBJ_FUNCTION,
   OBJ_STRING,
+  OBJ_NATIVE,
 };
 
 class Obj {
@@ -44,15 +47,28 @@ class ObjFunction : public Obj {
   Chunk chunk;
   ObjString* name;
 
-  ObjFunction() : arity(0), name(new ObjString{}){};
-  ObjFunction(Chunk chunk) : arity(0), chunk(chunk), name(new ObjString{}) {}
-  ~ObjFunction() { delete name; };
+  ObjFunction() : arity(0), name(nullptr){};
+  ObjFunction(Chunk chunk) : arity(0), chunk(chunk), name(nullptr) {}
+  ~ObjFunction() {
+    if (name != nullptr) delete name;
+  };
+};
+
+using NativeFunctionType = Value(int argCount, Value* args);
+using NativeFunctionPtr = NativeFunctionType*;
+
+class ObjNative : public Obj {
+ public:
+  NativeFunctionPtr func;
+  ObjNative(NativeFunctionPtr func) : func(func){};
 };
 
 bool isObjType(Value value, ObjType type);
 
 ObjString* allocateStringObject(const char* chars, int length,
                                 Table* stringTable, Obj** objects);
+ObjFunction* allocateFunctionObject(Obj** objects);
+ObjNative* allocateNativeFnctionObject(NativeFunctionPtr func, Obj** objects);
 
 void printObject(Value value);
 
