@@ -32,6 +32,7 @@ enum ObjType {
 class Obj {
  public:
   ObjType type;
+  bool isMarked;
   Obj* next;
   virtual ~Obj(){};
 };
@@ -101,4 +102,6 @@ bool isObjType(Value value, ObjType type);
 void printObject(Value value);
 uint32_t hashString(const char* key, int length);
 
+void markObject(Obj* obj, std::vector<Obj*>& greyStack);
+void blackenObject(Obj* obj, std::vector<Obj*>& greyStack);
 #endif

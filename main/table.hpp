@@ -36,6 +36,8 @@ class Table {
   void adjustCapacity(int cap);
   ObjString* findString(ObjString* target);
   void addAll(Table* src);
+
+  void markTable(std::vector<Obj*>& greyStack);
 };
 
 Entry* findEntry(std::vector<Entry>* entries, ObjString* key);

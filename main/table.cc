@@ -103,3 +103,11 @@ void Table::addAll(Table* src) {
     }
   }
 }
+
+void Table::markTable(std::vector<Obj*>& greyStack) {
+  for (int i = 0; i < entries->capacity(); i++) {
+    Entry* entry = &(*entries)[i];
+    markObject(entry->key, greyStack);
+    if (IS_OBJ(entry->value)) markObject(AS_OBJ(entry->value), greyStack);
+  }
+}

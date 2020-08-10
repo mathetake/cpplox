@@ -1,5 +1,6 @@
 #include "object.hpp"
 
+#include "value.hpp"
 #include "vm.hpp"
 
 ObjString::ObjString(const char* chars, int length) {
@@ -29,6 +30,7 @@ ObjString* allocateStringObject(const char* chars, int length,
                                 Table* stringTable, Obj** objects) {
   auto string = new ObjString(chars, length);
   string->type = ObjType::OBJ_STRING;
+  string->isMarked = false;
   auto found = stringTable->findString(string);
   if (found != nullptr) return found;
 
@@ -39,6 +41,7 @@ ObjString* allocateStringObject(const char* chars, int length,
 
 ObjFunction* allocateFunctionObject(Obj** objects) {
   auto function = new ObjFunction{};
+  function->isMarked = false;
   function->type = ObjType::OBJ_FUNCTION;
   ADD_OBJECT_LISTS(objects, function)
   return function;
@@ -46,6 +49,7 @@ ObjFunction* allocateFunctionObject(Obj** objects) {
 
 ObjNative* allocateNativeFnctionObject(NativeFunctionPtr func, Obj** objects) {
   auto native = new ObjNative{func};
+  native->isMarked = false;
   native->type = ObjType::OBJ_NATIVE;
   ADD_OBJECT_LISTS(objects, native)
   return native;
@@ -53,6 +57,7 @@ ObjNative* allocateNativeFnctionObject(NativeFunctionPtr func, Obj** objects) {
 
 ObjClosure* allocateClosureObject(ObjFunction* function, Obj** objects) {
   auto closure = new ObjClosure(function);
+  closure->isMarked = false;
   closure->type = ObjType::OBJ_CLOSURE;
   ADD_OBJECT_LISTS(objects, closure)
   return closure;
@@ -60,6 +65,7 @@ ObjClosure* allocateClosureObject(ObjFunction* function, Obj** objects) {
 
 ObjUpvalue* allocateUpvalueObject(Value* location, Obj** objects) {
   auto upvalue = new ObjUpvalue(location);
+  upvalue->isMarked = false;
   upvalue->type = ObjType::OBJ_UPVALUE;
   ADD_OBJECT_LISTS(objects, upvalue)
   return upvalue;
@@ -102,4 +108,54 @@ uint32_t hashString(const char* key, int length) {
   }
 
   return hash;
+}
+
+#define MARK_VALUE(value) \
+  if (IS_OBJ(value)) markObject(AS_OBJ(value), grayStack)
+
+void markObject(Obj* obj, std::vector<Obj*>& grayStack) {
+  if (obj == nullptr) return;
+  if (obj->isMarked) return;
+
+#ifdef DEBUG_LOG_GC
+  printf("%p mark ", (void*)obj);
+  printValue(OBJ_VAL(obj));
+  printf("\n");
+#endif
+  obj->isMarked = true;
+
+  grayStack.push_back(obj);
+}
+
+void blackenObject(Obj* obj, std::vector<Obj*>& grayStack) {
+#ifdef DEBUG_LOG_GC
+  printf("%p blacken ", (void*)obj);
+  printValue(OBJ_VAL(obj));
+  printf("\n");
+#endif
+
+  switch (obj->type) {
+    case OBJ_UPVALUE:
+      MARK_VALUE(((ObjUpvalue*)obj)->closed);
+      break;
+    case OBJ_FUNCTION: {
+      ObjFunction* function = (ObjFunction*)obj;
+      markObject((Obj*)function->name, grayStack);
+      for (auto value : function->chunk.constants.values) {
+        MARK_VALUE(value);
+      }
+      break;
+    }
+    case OBJ_CLOSURE: {
+      ObjClosure* closure = (ObjClosure*)obj;
+      markObject((Obj*)closure->function, grayStack);
+      for (int i = 0; i < closure->upvalueCount; i++) {
+        markObject((Obj*)closure->upvalues[i], grayStack);
+      }
+      break;
+    }
+    case OBJ_NATIVE:
+    case OBJ_STRING:
+      break;
+  }
 }

@@ -29,6 +29,7 @@ class VM {
   Table strings;
   Table globals;
   ObjUpvalue* openUpvalues;
+  std::vector<Obj*> grayStack;
 
   CallFrame frames[FRAMES_MAX];
   int frameCount;
@@ -42,6 +43,10 @@ class VM {
   IntepretResult interpret(const char* source);
   void initVM();
   void freeVM();
+  void collectGarbage();
+  void markRoots();
+  void traceReferences();
+  void sweep();
 
   void reset_stack();
   void push(Value value);

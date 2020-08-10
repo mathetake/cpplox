@@ -18,7 +18,11 @@ Value clockNative(int argCount, Value* args) {
 
 VM vm{};
 
-VM::VM() : objects(nullptr), frameCount(0), openUpvalues(nullptr) {
+VM::VM()
+    : objects(nullptr),
+      frameCount(0),
+      openUpvalues(nullptr),
+      grayStack(std::vector<Obj*>()) {
   reset_stack();
   defineNative("clock", 5, clockNative);
 }
@@ -87,7 +91,78 @@ void VM::defineNative(const char* name, int length,
   pop();
 }
 
+void VM::collectGarbage() {
+#ifdef DEBUG_LOG_GC
+  printf("-- gc begin\n");
+#endif
+
+  markRoots();
+  traceReferences();
+
+#ifdef DEBUG_LOG_GC
+  printf("-- gc end\n");
+#endif
+}
+
+void VM::markRoots() {
+  for (Value* slot = stack; slot < stack_top; slot++) {
+    if (!IS_OBJ(*slot)) return;
+    markObject(AS_OBJ(*slot), grayStack);
+  }
+
+  for (int i = 0; i < frameCount; i++) {
+    markObject((Obj*)frames[i].closure, grayStack);
+  }
+
+  for (ObjUpvalue* upvalue = openUpvalues; upvalue != NULL;
+       upvalue = upvalue->nextUpValue) {
+    markObject((Obj*)upvalue, grayStack);
+  }
+
+  globals.markTable(grayStack);
+}
+
+void VM::traceReferences() {
+  while (grayStack.size() > 0) {
+    auto obj = grayStack.back();
+    grayStack.pop_back();
+    blackenObject(obj, grayStack);
+  }
+
+  grayStack.resize(0);
+}
+
+void VM::sweep() {
+  Obj* previous = NULL;
+  Obj* object = objects;
+  while (object != NULL) {
+    if (object->isMarked) {
+      object->isMarked = false;
+      previous = object;
+      object = object->next;
+    } else {
+      Obj* unreached = object;
+
+      object = object->next;
+      if (previous != NULL) {
+        previous->next = object;
+      } else {
+        objects = object;
+      }
+
+#ifdef DEBUG_LOG_GC
+      printf("%p free type %d\n", (void*)unreached, unreached->type);
+#endif
+      delete unreached;
+    }
+  }
+}
+
 IntepretResult VM::run() {
+#ifdef DEBUG_STRESS_GC
+  collectGarbage();
+#endif
+
   CallFrame* frame = &frames[frameCount - 1];
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT() \

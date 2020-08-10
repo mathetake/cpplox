@@ -87,3 +87,14 @@ TEST(Object, allocateUpvalueObject) {
   ASSERT_EQ(upvalue->nextUpValue, nullptr);
   ASSERT_EQ(upvalue->closed.type, ValueType::VAL_NIL);
 }
+
+TEST(Object, markObject) {
+  std::vector<Obj*> stack{};
+  markObject(nullptr, stack);
+
+  auto obj = new Obj{};
+  obj->isMarked = false;
+  markObject(obj, stack);
+  ASSERT_TRUE(obj->isMarked);
+  ASSERT_EQ(obj, stack[0]);
+}
