@@ -16,7 +16,7 @@ enum IntepretResult {
 };
 
 struct CallFrame {
-  ObjFunction* function;
+  ObjClosure* closure;
   uint8_t* ip;
   Value* slots;
 };
@@ -28,6 +28,7 @@ class VM {
   Obj* objects;
   Table strings;
   Table globals;
+  ObjUpvalue* openUpvalues;
 
   CallFrame frames[FRAMES_MAX];
   int frameCount;
@@ -49,12 +50,15 @@ class VM {
   static bool isFalsey(Value value);
 
   bool callValue(Value callee, int argCount);
-  bool call(ObjFunction* function, int argCount);
+  bool call(ObjClosure* function, int argCount);
 
   void defineNative(const char* name, int length, NativeFunctionPtr function);
 
   void concatenate();
   void runtimeError(const char* format, ...);
+
+  ObjUpvalue* captureUpvalue(Value* local);
+  void closeUpvalues(Value* last);
 };
 
 void initVM();

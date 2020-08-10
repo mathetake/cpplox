@@ -1,5 +1,6 @@
 #include "debug.hpp"
 
+#include "object.hpp"
 #include "value.hpp"
 
 void disassembleChunk(Chunk* chunk, const char* name) {
@@ -93,8 +94,31 @@ int disassembleInstruction(Chunk* chunk, int offset) {
       return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
     case OptCode::OP_LOOP:
       return jumpInstruction("OP_LOOP", -1, chunk, offset);
-    case OP_CALL:
+    case OptCode::OP_CALL:
       return byteInstruction("OP_CALL", chunk, offset);
+    case OptCode::OP_GET_UPVALUE:
+      return byteInstruction("OP_GET_UPVALUE", chunk, offset);
+    case OptCode::OP_SET_UPVALUE:
+      return byteInstruction("OP_SET_UPVALUE", chunk, offset);
+    case OptCode::OP_CLOSE_UPVALUE:
+      return simpleInstruction("OP_CLOSE_UPVALUE", offset);
+    case OptCode::OP_CLOSURE: {
+      offset++;
+      uint8_t constant = chunk->code[offset++];
+      printf("%-16s %4d ", "OP_CLOSURE", constant);
+      printValue(chunk->constants.values[constant]);
+      printf("\n");
+
+      ObjFunction* function = AS_FUNCTION(chunk->constants.values[constant]);
+      for (int j = 0; j < function->upvalueCount; j++) {
+        int isLocal = chunk->code[offset++];
+        int index = chunk->code[offset++];
+        printf("%04d      |                     %s %d\n", offset - 2,
+               isLocal ? "local" : "upvalue", index);
+      }
+
+      return offset;
+    }
     default:
       printf("unknown optcode: %d\n", inst);
       return offset + 1;

@@ -31,6 +31,7 @@ ObjString* allocateStringObject(const char* chars, int length,
   string->type = ObjType::OBJ_STRING;
   auto found = stringTable->findString(string);
   if (found != nullptr) return found;
+
   ADD_OBJECT_LISTS(objects, string)
   stringTable->set(string, NIL_VAL);
   return string;
@@ -50,6 +51,20 @@ ObjNative* allocateNativeFnctionObject(NativeFunctionPtr func, Obj** objects) {
   return native;
 }
 
+ObjClosure* allocateClosureObject(ObjFunction* function, Obj** objects) {
+  auto closure = new ObjClosure(function);
+  closure->type = ObjType::OBJ_CLOSURE;
+  ADD_OBJECT_LISTS(objects, closure)
+  return closure;
+}
+
+ObjUpvalue* allocateUpvalueObject(Value* location, Obj** objects) {
+  auto upvalue = new ObjUpvalue(location);
+  upvalue->type = ObjType::OBJ_UPVALUE;
+  ADD_OBJECT_LISTS(objects, upvalue)
+  return upvalue;
+};
+
 void printFunction(ObjFunction* function) {
   if (function->name == NULL) {
     printf("<script>");
@@ -66,8 +81,14 @@ void printObject(Value value) {
     case OBJ_NATIVE:
       printf("<native fn>");
       break;
+    case OBJ_CLOSURE:
+      printFunction(AS_CLOSURE(value)->function);
+      break;
     case OBJ_STRING:
       printf("%s", AS_CSTRING(value));
+      break;
+    case OBJ_UPVALUE:
+      printf("upvalue");
       break;
   }
 }

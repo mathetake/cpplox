@@ -495,7 +495,7 @@ TEST(Compiler, compileFunction) {
   compiler->compileFunction(FunctionType::TYPE_FUNCTION);
   ASSERT_EQ(compiler->function->chunk.code.size(), 2);
 
-  ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_CONSTANT);
+  ASSERT_EQ(compiler->function->chunk.code[0], OptCode::OP_CLOSURE);
   ASSERT_EQ(compiler->function->chunk.code[1], 0);
 
   ASSERT_EQ(compiler->function->chunk.constants.values.size(), 1);

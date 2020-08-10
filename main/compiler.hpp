@@ -37,6 +37,13 @@ class Local {
  public:
   Token name;
   int depth;
+  bool isCaptured;
+};
+
+class Upvalue {
+ public:
+  uint8_t index;
+  bool isLocal;
 };
 
 class Compiler {
@@ -49,6 +56,7 @@ class Compiler {
   FunctionType functionType;
   ObjFunction* function;
 
+  Upvalue upvalues[UINT8_COUNT];
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
@@ -105,6 +113,8 @@ class Compiler {
   void addLocal(Token name);
   void markInitialized();
   int resolveLocal(Token* name);
+  int resolveUpvalue(Token* name);
+  int addUpvalue(uint8_t index, bool isLocal);
 
   int emitJump(uint8_t instruction);
   void patchJump(int offset);

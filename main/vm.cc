@@ -18,9 +18,7 @@ Value clockNative(int argCount, Value* args) {
 
 VM vm{};
 
-VM::VM() {
-  objects = nullptr;
-  frameCount = 0;
+VM::VM() : objects(nullptr), frameCount(0), openUpvalues(nullptr) {
   reset_stack();
   defineNative("clock", 5, clockNative);
 }
@@ -60,13 +58,14 @@ void VM::runtimeError(const char* format, ...) {
 
   CallFrame* frame = &frames[frameCount - 1];
 
-  size_t instruction = *(frame->ip - frame->function->chunk.code.front()) - 1;
-  int line = frame->function->chunk.lines[instruction];
+  size_t instruction =
+      *(frame->ip - frame->closure->function->chunk.code.front()) - 1;
+  int line = frame->closure->function->chunk.lines[instruction];
   fprintf(stderr, "[line %d] in script\n", line);
 
   for (int i = frameCount - 1; i >= 0; i--) {
     CallFrame* frame = &frames[i];
-    ObjFunction* function = frame->function;
+    ObjFunction* function = frame->closure->function;
     size_t instruction = *(frame->ip - function->chunk.code.front() - 1);
     fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
     if (function->name == NULL) {
@@ -91,7 +90,8 @@ void VM::defineNative(const char* name, int length,
 IntepretResult VM::run() {
   CallFrame* frame = &frames[frameCount - 1];
 #define READ_BYTE() (*frame->ip++)
-#define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])
+#define READ_CONSTANT() \
+  (frame->closure->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_SHORT() \
   (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
@@ -116,8 +116,9 @@ IntepretResult VM::run() {
     }
     printf("\n");
     disassembleInstruction(
-        &frame->function->chunk,
-        static_cast<int>(frame->ip - &frame->function->chunk.code.front()));
+        &frame->closure->function->chunk,
+        static_cast<int>(frame->ip -
+                         &frame->closure->function->chunk.code.front()));
 #endif
     switch (inst = READ_BYTE()) {
       case OP_CONSTANT: {
@@ -231,6 +232,8 @@ IntepretResult VM::run() {
       case OP_RETURN: {
         Value result = pop();
 
+        closeUpvalues(frame->slots);
+
         frameCount--;
         if (frameCount == 0) {
           pop();
@@ -264,7 +267,37 @@ IntepretResult VM::run() {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &frames[frameCount - 1];  // switch to new function frame
+        break;
       }
+      case OP_CLOSURE: {
+        ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
+        ObjClosure* closure = allocateClosureObject(function, &objects);
+        push(OBJ_VAL(closure));
+        for (int i = 0; i < closure->upvalueCount; i++) {
+          uint8_t isLocal = READ_BYTE();
+          uint8_t index = READ_BYTE();
+          if (isLocal) {
+            closure->upvalues[i] = captureUpvalue(frame->slots + index);
+          } else {
+            closure->upvalues[i] = frame->closure->upvalues[index];
+          }
+        }
+        break;
+      }
+      case OP_GET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        push(*frame->closure->upvalues[slot]->location);
+        break;
+      }
+      case OP_SET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        *frame->closure->upvalues[slot]->location = peek(0);
+        break;
+      }
+      case OP_CLOSE_UPVALUE:
+        closeUpvalues(stack_top - 1);
+        pop();
+        break;
     }
   }
 #undef BINARY_OP
@@ -274,8 +307,10 @@ IntepretResult VM::run() {
 #undef READ_BYTE
 };
 
-IntepretResult VM::interpret(ObjFunction* function) {
-  callValue(OBJ_VAL(function), 0);
+IntepretResult VM::interpret(ObjFunction* function) {  // for testing purpose
+  ObjClosure* closure = allocateClosureObject(function, &objects);
+  push(OBJ_VAL(closure));
+  callValue(OBJ_VAL(closure), 0);
   return IntepretResult::INTERPRET_OK;
 }
 
@@ -287,7 +322,10 @@ IntepretResult VM::interpret(const char* source) {
   if (function == nullptr) return IntepretResult::INTERPRET_COMPILE_ERROR;
 
   push(OBJ_VAL(function));
-  interpret(function);
+  ObjClosure* closure = allocateClosureObject(function, &objects);
+  pop();
+  push(OBJ_VAL(closure));
+  callValue(OBJ_VAL(closure), 0);
   return run();
 }
 
@@ -305,8 +343,8 @@ void VM::concatenate() {
 bool VM::callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
-      case OBJ_FUNCTION:
-        return call(AS_FUNCTION(callee), argCount);
+      case OBJ_CLOSURE:
+        return call(AS_CLOSURE(callee), argCount);
       case OBJ_NATIVE: {
         NativeFunctionPtr native = AS_NATIVE(callee);
         Value result = native(argCount, stack_top - argCount);
@@ -323,9 +361,9 @@ bool VM::callValue(Value callee, int argCount) {
   return false;
 };
 
-bool VM::call(ObjFunction* function, int argCount) {
-  if (argCount != function->arity) {
-    runtimeError("Expected %d arguments but got %d.", function->arity,
+bool VM::call(ObjClosure* closure, int argCount) {
+  if (argCount != closure->function->arity) {
+    runtimeError("Expected %d arguments but got %d.", closure->function->arity,
                  argCount);
     return false;
   }
@@ -336,8 +374,39 @@ bool VM::call(ObjFunction* function, int argCount) {
   }
 
   CallFrame* frame = &frames[frameCount++];
-  frame->function = function;
-  frame->ip = &function->chunk.code.front();
+  frame->closure = closure;
+  frame->ip = &closure->function->chunk.code.front();
   frame->slots = stack_top - argCount - 1;
   return true;
 };
+
+ObjUpvalue* VM::captureUpvalue(Value* local) {
+  ObjUpvalue* prevUpvalue = NULL;
+  ObjUpvalue* upvalue = openUpvalues;
+
+  while (upvalue != NULL && upvalue->location > local) {
+    prevUpvalue = upvalue;
+    upvalue = upvalue->nextUpValue;
+  }
+
+  if (upvalue != NULL && upvalue->location == local) return upvalue;
+  ObjUpvalue* createdUpvalue = allocateUpvalueObject(local, &objects);
+
+  createdUpvalue->next = upvalue;
+
+  if (prevUpvalue == NULL) {
+    openUpvalues = createdUpvalue;
+  } else {
+    prevUpvalue->next = createdUpvalue;
+  }
+  return createdUpvalue;
+}
+
+void VM::closeUpvalues(Value* last) {
+  while (openUpvalues != NULL && openUpvalues->location >= last) {
+    ObjUpvalue* upvalue = openUpvalues;
+    upvalue->closed = *upvalue->location;
+    upvalue->location = &upvalue->closed;
+    openUpvalues = upvalue->nextUpValue;
+  }
+}

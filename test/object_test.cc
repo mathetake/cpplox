@@ -48,6 +48,20 @@ TEST(Object, allocateFunctionObject) {
   ASSERT_EQ((*list)->next->type, ObjType::OBJ_NATIVE);
 }
 
+TEST(Object, allocateClosureObject) {
+  auto first = new Obj{};
+  auto list = &first;
+
+  auto function = allocateFunctionObject(list);
+  function->upvalueCount = 100;
+  auto closure = allocateClosureObject(function, list);
+  ASSERT_EQ(*list, closure);
+  ASSERT_EQ(closure->function, function);
+  ASSERT_EQ(closure->upvalues.size(), 100);
+  ASSERT_EQ(closure->upvalueCount, 100);
+  ASSERT_EQ((*list)->next->type, ObjType::OBJ_FUNCTION);
+}
+
 Value tmp(int argCount, Value* args) { return NUMBER_VAL(100); }
 
 TEST(Object, allocateNativeFnctionObject) {
@@ -60,4 +74,16 @@ TEST(Object, allocateNativeFnctionObject) {
   ASSERT_EQ(*list, obj);
   ASSERT_EQ((*list)->next->type, ObjType::OBJ_NATIVE);
   ASSERT_EQ(obj->func(0, nullptr).number, 100);
+}
+
+TEST(Object, allocateUpvalueObject) {
+  auto first = new Obj{};
+  auto list = &first;
+
+  auto location = new Value{};
+  auto upvalue = allocateUpvalueObject(location, list);
+  ASSERT_EQ(*list, upvalue);
+  ASSERT_EQ(upvalue->location, location);
+  ASSERT_EQ(upvalue->nextUpValue, nullptr);
+  ASSERT_EQ(upvalue->closed.type, ValueType::VAL_NIL);
 }
